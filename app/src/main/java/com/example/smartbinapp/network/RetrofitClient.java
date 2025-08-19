@@ -23,7 +23,7 @@ public class RetrofitClient {
 
             // Khởi tạo Retrofit
             retrofit = new Retrofit.Builder()
-                    .baseUrl("http://10.0.2.2:8080/TestSmartBin_war/") // Đúng với máy thật hoặc emulator
+                    .baseUrl("http://10.0.2.2:8080/SmartBinWeb_war/") // Đúng với máy thật hoặc emulator
                     .client(client) // sử dụng client có log
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
