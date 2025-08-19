@@ -29,11 +29,11 @@ public interface ApiService {
 
 
 
-    @POST("/TestSmartBin_war/api/accounts/register") // Đường dẫn bạn đã tạo trong backend Spring Boot
+    @POST("/SmartBinWeb_war/api/accounts/register") // Đường dẫn bạn đã tạo trong backend Spring Boot
     Call<Account> register(@Body Account account);
 
 
-    @POST("/TestSmartBin_war/api/accounts/verificode")
+    @POST("/SmartBinWeb_war/api/accounts/verificode")
     Call<ResponseBody> verifyCode(@Body Account request);
 
 //    @GET("p/?depth=1")
