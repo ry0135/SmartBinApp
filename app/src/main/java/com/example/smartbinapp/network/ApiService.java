@@ -24,17 +24,14 @@ public interface ApiService {
 //    @GET("api/accounts/{userID}")
 //    Call<Account> getAccountById(@Path("userID") String userID);
 
-    @POST("api/login")
-    Call<Account> login(@Body Account account);
-
-
-
-    @POST("/SmartBinWeb_war/api/accounts/register") // Đường dẫn bạn đã tạo trong backend Spring Boot
+    @POST("api/accounts/register")
     Call<Account> register(@Body Account account);
 
-
-    @POST("/SmartBinWeb_war/api/accounts/verificode")
+    @POST("api/accounts/verificode")
     Call<ResponseBody> verifyCode(@Body Account request);
+
+    @POST("api/login")
+    Call<Account> login(@Body Account account);
 
 //    @GET("p/?depth=1")
 //    Call<List<Province>> getProvinces();
