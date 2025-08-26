@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="30dp"
+    android:height="30dp"
+    android:viewportWidth="30"
+    android:viewportHeight="30">
+    
+    <!-- Thùng rác -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M5,5 L25,5 L25,25 L5,25 Z" />
+    
+    <!-- Nắp thùng rác -->
+    <path
+        android:fillColor="#388E3C"
+        android:pathData="M4,4 L26,4 L26,6 L4,6 Z" />
+    
+    <!-- Sensor -->
+    <circle
+        android:fillColor="#FF5722"
+        android:pathData="M15,9 A2,2 0 1,1 15,13 A2,2 0 1,1 15,9 Z" />
+    
+    <!-- LED indicator -->
+    <circle
+        android:fillColor="#FFC107"
+        android:pathData="M10,18 A1,1 0 1,1 10,20 A1,1 0 1,1 10,18 Z" />
+    
+    <circle
+        android:fillColor="#FFC107"
+        android:pathData="M20,18 A1,1 0 1,1 20,20 A1,1 0 1,1 20,18 Z" />
+    
+    <!-- Display screen -->
+    <path
+        android:fillColor="#263238"
+        android:pathData="M8,22 L22,22 L22,24 L8,24 Z" />
+    
+    <!-- Text on screen -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9,23 L21,23 L21,23.5 L9,23.5 Z" />
+</vector> 
