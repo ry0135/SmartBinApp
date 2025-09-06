@@ -33,7 +33,6 @@
             android:layout_height="24dp"
             android:src="@drawable/ic_menu"
             android:tint="#666666" />
-
     </LinearLayout>
 
     <!-- Map Container -->
@@ -44,12 +43,15 @@
         app:layout_constraintTop_toBottomOf="@+id/top_bar"
         app:layout_constraintBottom_toTopOf="@+id/bottom_navigation">
 
-        <!-- Google Map Fragment -->
-        <fragment
-            android:id="@+id/map"
-            android:name="com.google.android.gms.maps.SupportMapFragment"
+        <vn.vietmap.vietmapsdk.maps.MapView
+            android:id="@+id/vmMapView"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            app:vietmap_cameraZoom="1"
+            android:visibility="visible"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintHeight_percent="1"/>
 
         <!-- Floating Action Button for Report -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -61,7 +63,6 @@
             android:src="@drawable/ic_report"
             app:backgroundTint="#4CAF50"
             app:tint="#FFFFFF" />
-
     </FrameLayout>
 
     <!-- Bottom Navigation -->
@@ -98,7 +99,6 @@
                 android:textColor="#4CAF50"
                 android:textSize="12sp"
                 android:layout_marginTop="4dp" />
-
         </LinearLayout>
 
         <!-- Report Button -->
@@ -124,7 +124,6 @@
                 android:textColor="#666666"
                 android:textSize="12sp"
                 android:layout_marginTop="4dp" />
-
         </LinearLayout>
 
         <!-- Account Button -->
@@ -150,9 +149,6 @@
                 android:textColor="#666666"
                 android:textSize="12sp"
                 android:layout_marginTop="4dp" />
-
         </LinearLayout>
-
     </LinearLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

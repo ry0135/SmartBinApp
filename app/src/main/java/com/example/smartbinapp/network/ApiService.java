@@ -3,6 +3,7 @@ package com.example.smartbinapp.network;
 import java.util.List;
 import java.util.Map;
 import com.example.smartbinapp.model.Account;
+import com.example.smartbinapp.model.Bin;
 
 import okhttp3.ResponseBody;
 import retrofit2.Call;
@@ -30,8 +31,11 @@ public interface ApiService {
     @POST("api/accounts/verificode")
     Call<ResponseBody> verifyCode(@Body Account request);
 
-    @POST("api/login")
+    @POST("api/accounts/login")
     Call<Account> login(@Body Account account);
+
+    @GET("api/bins")
+    Call<List<Bin>> getAllBins();
 
 //    @GET("p/?depth=1")
 //    Call<List<Province>> getProvinces();

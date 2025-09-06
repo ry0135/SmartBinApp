@@ -47,6 +47,15 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.2")
 
     implementation("com.google.android.gms:play-services-maps:18.2.0")
+
+
+    implementation ("com.github.vietmap-company:maps-sdk-android:2.0.4")
+    implementation ("com.github.vietmap-company:maps-sdk-plugin-localization-android:2.0.0")
+    implementation ("com.github.vietmap-company:vietmap-services-geojson-android:1.0.0")
+    implementation ("com.github.vietmap-company:vietmap-services-turf-android:1.0.2")
+    implementation ("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation ("com.google.code.gson:gson:2.10.1")
+
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
