@@ -14,7 +14,6 @@ public class Account {
 
     private String password;
 
-
     private String phone;
 
     private int role; // 1 = Admin, 2 = Nhân viên, 3 = Người dân
@@ -28,6 +27,7 @@ public class Account {
 
     private Boolean  IsVerified  ; // 1 = hoạt động, 0 = khóa
 
+    private Integer  wardID;
 
     public Account() {
     }
@@ -112,5 +112,33 @@ public class Account {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public void setAccountId(Integer accountId) {
+        this.accountId = accountId;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public Boolean getVerified() {
+        return IsVerified;
+    }
+
+    public void setVerified(Boolean verified) {
+        IsVerified = verified;
+    }
+
+    public Integer getWardID() {
+        return wardID;
+    }
+
+    public void setWardID(Integer wardID) {
+        this.wardID = wardID;
     }
 }

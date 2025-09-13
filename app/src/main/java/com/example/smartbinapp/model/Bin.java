@@ -1,111 +1,56 @@
 package com.example.smartbinapp.model;
 
-
-
 import java.util.Date;
 
-
 public class Bin {
-
-
     private int binId;
-
     private String binCode;
-
     private String street;
-
-    private String ward;
-
-    private String city;
-
+    private int wardID;
     private double latitude;
-
     private double longitude;
-
     private double capacity;
+    private double currentFill;
+    private int status;
+    private Date lastUpdated;
+    private String wardName;
+    private String provinceName;
 
-    private double currentFill = 0;
+    // Getters & Setters
+    public int getBinId() { return binId; }
+    public void setBinId(int binId) { this.binId = binId; }
 
-    private int status = 1; // 1 = hoạt động, 0 = bảo trì, 2 = đầy
+    public String getBinCode() { return binCode; }
+    public void setBinCode(String binCode) { this.binCode = binCode; }
 
-    private long lastUpdated;
+    public String getStreet() { return street; }
+    public void setStreet(String street) { this.street = street; }
 
-    // Getters và Setters
-    public int getBinId() {
-        return binId;
-    }
-    public void setBinId(int binId) {
-        this.binId = binId;
-    }
+    public int getWardID() { return wardID; }
+    public void setWardID(int wardID) { this.wardID = wardID; }
 
-    public String getBinCode() {
-        return binCode;
-    }
-    public void setBinCode(String binCode) {
-        this.binCode = binCode;
-    }
+    public double getLatitude() { return latitude; }
+    public void setLatitude(double latitude) { this.latitude = latitude; }
 
-    public String getStreet() {
-        return street;
-    }
-    public void setStreet(String street) {
-        this.street = street;
-    }
+    public double getLongitude() { return longitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
 
-    public String getWard() {
-        return ward;
-    }
-    public void setWard(String ward) {
-        this.ward = ward;
-    }
+    public double getCapacity() { return capacity; }
+    public void setCapacity(double capacity) { this.capacity = capacity; }
 
-    public String getCity() {
-        return city;
-    }
-    public void setCity(String city) {
-        this.city = city;
-    }
+    public double getCurrentFill() { return currentFill; }
+    public void setCurrentFill(double currentFill) { this.currentFill = currentFill; }
 
-    public double getLatitude() {
-        return latitude;
-    }
-    public void setLatitude(double latitude) {
-        this.latitude = latitude;
-    }
+    public int getStatus() { return status; }
+    public void setStatus(int status) { this.status = status; }
 
-    public double getLongitude() {
-        return longitude;
-    }
-    public void setLongitude(double longitude) {
-        this.longitude = longitude;
-    }
+    public Date getLastUpdated() { return lastUpdated; }
+    public void setLastUpdated(Date lastUpdated) { this.lastUpdated = lastUpdated; }
 
-    public double getCapacity() {
-        return capacity;
-    }
-    public void setCapacity(double capacity) {
-        this.capacity = capacity;
-    }
+    // 🔹 Getter Setter mới
+    public String getWardName() { return wardName; }
+    public void setWardName(String wardName) { this.wardName = wardName; }
 
-    public double getCurrentFill() {
-        return currentFill;
-    }
-    public void setCurrentFill(double currentFill) {
-        this.currentFill = currentFill;
-    }
-
-    public int getStatus() {
-        return status;
-    }
-    public void setStatus(int status) {
-        this.status = status;
-    }
-
-    public Long getLastUpdated() {
-        return lastUpdated;
-    }
-    public void setLastUpdated(Long lastUpdated) {
-        this.lastUpdated = lastUpdated;
-    }
-
+    public String getProvinceName() { return provinceName; }
+    public void setProvinceName(String provinceName) { this.provinceName = provinceName; }
 }

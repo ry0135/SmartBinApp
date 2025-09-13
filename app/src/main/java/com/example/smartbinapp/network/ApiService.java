@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Map;
 import com.example.smartbinapp.model.Account;
 import com.example.smartbinapp.model.Bin;
+import com.example.smartbinapp.model.LoginRequest;
+import com.example.smartbinapp.model.Province;
+import com.example.smartbinapp.model.Ward;
 
 import okhttp3.ResponseBody;
 import retrofit2.Call;
@@ -12,6 +15,7 @@ import retrofit2.http.Field;
 import retrofit2.http.FormUrlEncoded;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
+import retrofit2.http.PUT;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
 
@@ -31,11 +35,25 @@ public interface ApiService {
     @POST("api/accounts/verificode")
     Call<ResponseBody> verifyCode(@Body Account request);
 
+
     @POST("api/accounts/login")
-    Call<Account> login(@Body Account account);
+    Call<Account> login(@Body LoginRequest loginRequest);
 
     @GET("api/bins")
     Call<List<Bin>> getAllBins();
+
+    @GET("api/bins/dto")
+    Call<List<Bin>> getAllBinDTOs();
+
+    @PUT("accounts/{id}")
+    Call<Account> updateAccount(@Path("id") String id, @Body Account account);
+
+
+    @GET("api/location/provinces")
+    Call<List<Province>> getProvinces();
+
+    @GET("api/location/wards/{provinceId}")
+    Call<List<Ward>> getWards(@Path("provinceId") int provinceId);
 
 //    @GET("p/?depth=1")
 //    Call<List<Province>> getProvinces();
