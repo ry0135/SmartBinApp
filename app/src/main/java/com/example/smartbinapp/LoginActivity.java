@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.smartbinapp.model.Account;
+import com.example.smartbinapp.model.LoginRequest;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 import com.google.android.material.textfield.TextInputEditText;
@@ -36,6 +37,18 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Check session: Nếu đã đăng nhập trước đó thì bỏ qua màn hình Login
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+        String savedUserId = prefs.getString("userId", null);
+        if (savedUserId != null) {
+            Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
+            intent.putExtra("firstname", prefs.getString("userName", ""));
+            startActivity(intent);
+            finish();
+            return;
+        }
+
         setContentView(R.layout.activity_login);
 
         // Khởi tạo View
@@ -43,6 +56,12 @@ public class LoginActivity extends AppCompatActivity {
 
         // Khởi tạo Retrofit
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
+
+        // Điền lại username/email gần nhất nếu có
+        String lastUsername = prefs.getString("lastUsername", null);
+        if (lastUsername != null) {
+            etUsername.setText(lastUsername);
+        }
 
         // Animation khi mở màn hình
         startEntranceAnimations();
@@ -64,27 +83,23 @@ public class LoginActivity extends AppCompatActivity {
 
     // ================== ANIMATIONS ==================
     private void startEntranceAnimations() {
-        // Header fade in
         ObjectAnimator headerAnimator = ObjectAnimator.ofFloat(headerSection, "alpha", 0f, 1f);
         headerAnimator.setDuration(1000);
         headerAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         headerAnimator.start();
 
-        // Login card fade in
         ObjectAnimator loginCardAnimator = ObjectAnimator.ofFloat(loginCard, "alpha", 0f, 1f);
         loginCardAnimator.setDuration(800);
         loginCardAnimator.setStartDelay(300);
         loginCardAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         loginCardAnimator.start();
 
-        // Quick login fade in
         ObjectAnimator quickLoginAnimator = ObjectAnimator.ofFloat(quickLoginSection, "alpha", 0f, 1f);
         quickLoginAnimator.setDuration(800);
         quickLoginAnimator.setStartDelay(600);
         quickLoginAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         quickLoginAnimator.start();
 
-        // Icon xoay
         ObjectAnimator rotationAnimator = ObjectAnimator.ofFloat(ivLoginBin, "rotationY", 0f, 360f);
         rotationAnimator.setDuration(1500);
         rotationAnimator.setStartDelay(500);
@@ -141,32 +156,31 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        Account account = new Account();
-        account.setEmail(username);
-        account.setPassword(password);
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString("lastUsername", username);
+        editor.apply();
 
-        apiService.login(account).enqueue(new Callback<Account>() {
+        LoginRequest request = new LoginRequest(username, password);
+
+        apiService.login(request).enqueue(new Callback<Account>() {
             @Override
             public void onResponse(Call<Account> call, Response<Account> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     Account account = response.body();
 
-                    // Lưu session
-                    SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
                     SharedPreferences.Editor editor = prefs.edit();
                     editor.putString("userId", String.valueOf(account.getAccountId()));
                     editor.putString("userName", account.getFullName());
+                    editor.putString("email", account.getEmail());
+                    editor.putLong("lastLoginTime", System.currentTimeMillis());
                     editor.apply();
 
                     Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
-
-                    // Chuyển sang HomeActivity
                     Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
                     intent.putExtra("firstname", account.getFullName());
                     startActivity(intent);
-                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
                     finish();
-
                 } else {
                     Toast.makeText(LoginActivity.this, "Sai thông tin đăng nhập", Toast.LENGTH_SHORT).show();
                 }

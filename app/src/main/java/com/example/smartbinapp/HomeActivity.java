@@ -2,6 +2,7 @@ package com.example.smartbinapp;
 
 import android.Manifest;
 import android.animation.ObjectAnimator;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -47,7 +48,7 @@ import vn.vietmap.vietmapsdk.maps.VietMapGL;
 public class HomeActivity extends AppCompatActivity {
 
     private ImageView ivMenu;
-    private LinearLayout btnHome, btnReport, btnAccount;
+    private LinearLayout btnHome, btnShowTask, btnAccount;
     private FloatingActionButton fabReport;
 
     private MapView mapView;
@@ -117,7 +118,7 @@ public class HomeActivity extends AppCompatActivity {
     private void loadBinsFromApi() {
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
-        apiService.getAllBins().enqueue(new Callback<List<Bin>>() {
+        apiService.getAllBinDTOs().enqueue(new Callback<List<Bin>>() {
             @Override
             public void onResponse(Call<List<Bin>> call, Response<List<Bin>> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -126,7 +127,7 @@ public class HomeActivity extends AppCompatActivity {
 
                         LatLng position = new LatLng(bin.getLatitude(), bin.getLongitude());
                         String title = bin.getBinCode() + " - " + percent + "% đầy";
-                        String snippet = bin.getStreet() + ", " + bin.getWard() + ", " + bin.getCity();
+                        String snippet = bin.getStreet() + ", " + bin.getWardName() + ", " + bin.getProvinceName();
 
                         // Chọn icon theo mức đầy
                         int iconRes;
@@ -205,7 +206,7 @@ public class HomeActivity extends AppCompatActivity {
     private void initializeViews() {
         ivMenu = findViewById(R.id.iv_menu);
         btnHome = findViewById(R.id.btn_home);
-        btnReport = findViewById(R.id.btn_report);
+        btnShowTask = findViewById(R.id.btn_showtask);
         btnAccount = findViewById(R.id.btn_account);
         fabReport = findViewById(R.id.fab_report);
     }
@@ -243,14 +244,14 @@ public class HomeActivity extends AppCompatActivity {
         btnHome.setOnClickListener(v -> {
             animateButtonClick(v);
             setActiveTab(btnHome, true);
-            setActiveTab(btnReport, false);
+            setActiveTab(btnShowTask, false);
             setActiveTab(btnAccount, false);
         });
 
-        btnReport.setOnClickListener(v -> {
+        btnShowTask.setOnClickListener(v -> {
             animateButtonClick(v);
             setActiveTab(btnHome, false);
-            setActiveTab(btnReport, true);
+            setActiveTab(btnShowTask, true);
             setActiveTab(btnAccount, false);
             Toast.makeText(this, "Báo cáo", Toast.LENGTH_SHORT).show();
         });
@@ -258,10 +259,11 @@ public class HomeActivity extends AppCompatActivity {
         btnAccount.setOnClickListener(v -> {
             animateButtonClick(v);
             setActiveTab(btnHome, false);
-            setActiveTab(btnReport, false);
+            setActiveTab(btnShowTask, false);
             setActiveTab(btnAccount, true);
-            Toast.makeText(this, "Tài khoản", Toast.LENGTH_SHORT).show();
-        });
+            Intent intent = new Intent(HomeActivity.this, ProfileActivity.class);
+            startActivity(intent);
+            finish();        });
 
         fabReport.setOnClickListener(v -> {
             animateButtonClick(v);

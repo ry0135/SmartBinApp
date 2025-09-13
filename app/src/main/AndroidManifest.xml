@@ -47,8 +47,12 @@
         <activity
             android:name=".HomeActivity"
             android:exported="false" />
-
-
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false" />
+        <activity
+            android:name=".EditProfileActivity"
+            android:exported="false" />
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBE8J3XrpWDUEkEL8CMLAGC5KjOHB86tpE" />

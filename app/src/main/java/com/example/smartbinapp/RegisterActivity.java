@@ -2,7 +2,6 @@ package com.example.smartbinapp;
 
 import android.animation.ObjectAnimator;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -11,9 +10,13 @@ import android.util.Log;
 import android.util.Patterns;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,13 +24,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.smartbinapp.model.Account;
+import com.example.smartbinapp.model.Province;
+import com.example.smartbinapp.model.Ward;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.List;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -38,12 +42,15 @@ public class RegisterActivity extends AppCompatActivity {
     private ImageView ivRegisterBin;
     private LinearLayout headerSection;
     private CardView registerCard;
-    private TextInputEditText etFullName, etUsername, etEmail, etPhone, etAddress, etPassword, etConfirmPassword;
-    private TextInputLayout tilFullName, tilUsername, tilEmail, tilPhone, tilAddress, tilPassword, tilConfirmPassword;
+    private TextInputEditText etFullName, etEmail, etPhone, etPassword, etConfirmPassword, etAddressDetail;
+    private TextInputLayout tilFullName, tilEmail, tilPhone, tilPassword, tilConfirmPassword, tilAddressDetail;
+    private Spinner spinnerProvince, spinnerWard;
     private Button btnRegister;
     private TextView tvBackToLogin;
 
     private ApiService apiService;
+    private Province selectedProvince;
+    private Ward selectedWard;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,10 +59,16 @@ public class RegisterActivity extends AppCompatActivity {
 
         // Initialize views
         initializeViews();
-        
+
+        // Init Retrofit
+        apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
+
+        // Load provinces
+        loadProvinces();
+
         // Start entrance animations
         startEntranceAnimations();
-        
+
         // Set up button click listeners
         setupButtonListeners();
     }
@@ -67,15 +80,20 @@ public class RegisterActivity extends AppCompatActivity {
         etFullName = findViewById(R.id.et_full_name);
         etEmail = findViewById(R.id.et_email);
         etPhone = findViewById(R.id.et_phone);
-        etAddress = findViewById(R.id.et_address);
         etPassword = findViewById(R.id.et_password);
         etConfirmPassword = findViewById(R.id.et_confirm_password);
+        etAddressDetail = findViewById(R.id.et_address_detail);
+
         tilFullName = findViewById(R.id.til_full_name);
         tilEmail = findViewById(R.id.til_email);
         tilPhone = findViewById(R.id.til_phone);
-        tilAddress = findViewById(R.id.til_address);
         tilPassword = findViewById(R.id.til_password);
         tilConfirmPassword = findViewById(R.id.til_confirm_password);
+        tilAddressDetail = findViewById(R.id.til_address_detail);
+
+        spinnerProvince = findViewById(R.id.spinnerProvince);
+        spinnerWard = findViewById(R.id.spinnerWard);
+
         btnRegister = findViewById(R.id.btn_register);
         tvBackToLogin = findViewById(R.id.tv_back_to_login);
     }
@@ -115,32 +133,103 @@ public class RegisterActivity extends AppCompatActivity {
         });
     }
 
+    private void loadProvinces() {
+        apiService.getProvinces().enqueue(new Callback<List<Province>>() {
+            @Override
+            public void onResponse(Call<List<Province>> call, Response<List<Province>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    List<Province> provinces = response.body();
+
+                    ArrayAdapter<Province> adapter = new ArrayAdapter<>(
+                            RegisterActivity.this,
+                            android.R.layout.simple_spinner_item,
+                            provinces
+                    );
+                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    spinnerProvince.setAdapter(adapter);
+
+                    spinnerProvince.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                        @Override
+                        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                            selectedProvince = provinces.get(position);
+                            loadWards(selectedProvince.getProvinceId());
+                        }
+
+                        @Override
+                        public void onNothingSelected(AdapterView<?> parent) {}
+                    });
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Province>> call, Throwable t) {
+                Toast.makeText(RegisterActivity.this, "Lỗi tải Tỉnh/TP", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void loadWards(int provinceId) {
+        apiService.getWards(provinceId).enqueue(new Callback<List<Ward>>() {
+            @Override
+            public void onResponse(Call<List<Ward>> call, Response<List<Ward>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    List<Ward> wards = response.body();
+
+                    ArrayAdapter<Ward> adapter = new ArrayAdapter<>(
+                            RegisterActivity.this,
+                            android.R.layout.simple_spinner_item,
+                            wards
+                    );
+                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    spinnerWard.setAdapter(adapter);
+
+                    spinnerWard.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                        @Override
+                        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                            selectedWard = wards.get(position);
+                        }
+
+                        @Override
+                        public void onNothingSelected(AdapterView<?> parent) {}
+                    });
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Ward>> call, Throwable t) {
+                Toast.makeText(RegisterActivity.this, "Lỗi tải Phường/Xã", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     private void performRegistration() {
         clearErrors();
 
         String fullName = etFullName.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String phone = etPhone.getText().toString().trim();
-        String address = etAddress.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
         String confirmPassword = etConfirmPassword.getText().toString().trim();
+        String addressDetail = etAddressDetail.getText().toString().trim();
 
-        if (!validateInputs(fullName, email, phone, address, password, confirmPassword)) {
+        if (!validateInputs(fullName, email, phone, password, confirmPassword, addressDetail)) {
             return;
         }
 
+        String fullAddress = (selectedWard != null ? selectedWard.getWardName() : "") + ", "
+                + (selectedProvince != null ? selectedProvince.getProvinceName() : "") + ", "
+                + addressDetail;
 
-        // ⚡ Tạo đối tượng Account (tùy constructor bạn đang có)
+        // ⚡ Tạo đối tượng Account
         Account account = new Account();
-        account.setFullName(fullName);  // hoặc setFullName() tùy thuộc model
+        account.setFullName(fullName);
         account.setEmail(email);
         account.setPhone(phone);
-        account.setAddress(address);
+        account.setWardID(selectedWard.getWardId());
         account.setPassword(password);
-        account.setRole(3); // ví dụ: role mặc định = 3
+        account.setRole(3); // mặc định role = 3
         account.setStatus(0);
 
-        ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
         apiService.register(account).enqueue(new Callback<Account>() {
             @Override
             public void onResponse(Call<Account> call, Response<Account> response) {
@@ -151,7 +240,7 @@ public class RegisterActivity extends AppCompatActivity {
                         intent.putExtra("EMAIL", account.getEmail());
                         startActivity(intent);
                         finish();
-                    }, 1000); // 1 giây
+                    }, 1000);
                 } else {
                     try {
                         String errorBody = response.errorBody().string();
@@ -171,60 +260,33 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private boolean validateInputs(String fullName, String email, String phone,
-                                 String address, String password, String confirmPassword) {
+                                   String password, String confirmPassword, String addressDetail) {
         boolean isValid = true;
 
-        // Validate full name
         if (TextUtils.isEmpty(fullName)) {
             tilFullName.setError("Vui lòng nhập họ và tên");
             isValid = false;
-        } else if (fullName.length() < 2) {
-            tilFullName.setError("Họ và tên phải có ít nhất 2 ký tự");
-            isValid = false;
         }
-
-        // Validate email
-        if (TextUtils.isEmpty(email)) {
-            tilEmail.setError("Vui lòng nhập email");
-            isValid = false;
-        } else if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        if (TextUtils.isEmpty(email) || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             tilEmail.setError("Email không hợp lệ");
             isValid = false;
         }
-
-        // Validate phone
-        if (TextUtils.isEmpty(phone)) {
-            tilPhone.setError("Vui lòng nhập số điện thoại");
-            isValid = false;
-        } else if (phone.length() < 10) {
+        if (TextUtils.isEmpty(phone) || phone.length() < 10) {
             tilPhone.setError("Số điện thoại không hợp lệ");
             isValid = false;
         }
-
-        // Validate address
-        if (TextUtils.isEmpty(address)) {
-            tilAddress.setError("Vui lòng nhập địa chỉ");
+        if (TextUtils.isEmpty(password) || password.length() < 6) {
+            tilPassword.setError("Mật khẩu tối thiểu 6 ký tự");
             isValid = false;
         }
-
-        // Validate password
-        if (TextUtils.isEmpty(password)) {
-            tilPassword.setError("Vui lòng nhập mật khẩu");
-            isValid = false;
-        } else if (password.length() < 6) {
-            tilPassword.setError("Mật khẩu phải có ít nhất 6 ký tự");
-            isValid = false;
-        }
-
-        // Validate confirm password
-        if (TextUtils.isEmpty(confirmPassword)) {
-            tilConfirmPassword.setError("Vui lòng xác nhận mật khẩu");
-            isValid = false;
-        } else if (!password.equals(confirmPassword)) {
+        if (TextUtils.isEmpty(confirmPassword) || !password.equals(confirmPassword)) {
             tilConfirmPassword.setError("Mật khẩu xác nhận không khớp");
             isValid = false;
         }
-
+        if (TextUtils.isEmpty(addressDetail)) {
+            tilAddressDetail.setError("Vui lòng nhập địa chỉ chi tiết");
+            isValid = false;
+        }
         return isValid;
     }
 
@@ -232,28 +294,22 @@ public class RegisterActivity extends AppCompatActivity {
         tilFullName.setError(null);
         tilEmail.setError(null);
         tilPhone.setError(null);
-        tilAddress.setError(null);
         tilPassword.setError(null);
         tilConfirmPassword.setError(null);
+        tilAddressDetail.setError(null);
     }
 
     private void animateButtonClick(View view) {
-        // Scale down animation
         ObjectAnimator scaleDown = ObjectAnimator.ofFloat(view, "scaleX", 1f, 0.95f);
         scaleDown.setDuration(100);
         scaleDown.setInterpolator(new AccelerateDecelerateInterpolator());
-        
-        // Scale up animation
+
         ObjectAnimator scaleUp = ObjectAnimator.ofFloat(view, "scaleX", 0.95f, 1f);
         scaleUp.setDuration(100);
         scaleUp.setStartDelay(100);
         scaleUp.setInterpolator(new AccelerateDecelerateInterpolator());
-        
+
         scaleDown.start();
         scaleUp.start();
     }
 }
-
-
-
-
