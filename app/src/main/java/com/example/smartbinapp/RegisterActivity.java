@@ -225,9 +225,9 @@ public class RegisterActivity extends AppCompatActivity {
         account.setFullName(fullName);
         account.setEmail(email);
         account.setPhone(phone);
-        account.setWardID(selectedWard.getWardId());
+        account.setWardId(selectedWard.getWardId());
         account.setPassword(password);
-        account.setRole(3); // mặc định role = 3
+        account.setRole(4); // mặc định role = 3
         account.setStatus(0);
 
         apiService.register(account).enqueue(new Callback<Account>() {
