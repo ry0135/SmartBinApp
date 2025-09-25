@@ -1,3 +1,4 @@
+
 package com.example.smartbinapp;
 
 import android.animation.ObjectAnimator;
@@ -17,6 +18,7 @@ import androidx.cardview.widget.CardView;
 import com.example.smartbinapp.model.Account;
 import com.example.smartbinapp.model.ApiMessage;
 import com.example.smartbinapp.model.LoginRequest;
+import com.example.smartbinapp.model.LoginResponse;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 import com.google.android.material.textfield.TextInputEditText;
@@ -48,7 +50,13 @@ public class LoginActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String savedUserId = prefs.getString("userId", null);
         if (savedUserId != null) {
-            Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
+            int savedRole = prefs.getInt("role", 0);
+            Intent intent;
+            if (savedRole == 4) {
+                intent = new Intent(LoginActivity.this, HomeActivityCitizen.class);
+            } else {
+                intent = new Intent(LoginActivity.this, HomeActivity.class);
+            }
             intent.putExtra("firstname", prefs.getString("userName", ""));
             startActivity(intent);
             finish();
@@ -66,7 +74,7 @@ public class LoginActivity extends AppCompatActivity {
 
         // Điền lại username/email gần nhất
         String lastUsername = prefs.getString("lastUsername", null);
-        if (lastUsername != null) {
+        if (lastUsername != null && etUsername != null) {
             etUsername.setText(lastUsername);
         }
 
@@ -132,7 +140,6 @@ public class LoginActivity extends AppCompatActivity {
         scaleUpX.start();
         scaleUpY.start();
     }
-    // =================================================
 
     private void setupButtonListeners() {
         findViewById(R.id.btn_login).setOnClickListener(v -> {
@@ -154,12 +161,18 @@ public class LoginActivity extends AppCompatActivity {
         String username = etUsername.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
+        // Clear previous errors
+        tilUsername.setError(null);
+        tilPassword.setError(null);
+
         if (username.isEmpty()) {
             tilUsername.setError("Vui lòng nhập tên đăng nhập");
+            etUsername.requestFocus();
             return;
         }
         if (password.isEmpty()) {
             tilPassword.setError("Vui lòng nhập mật khẩu");
+            etPassword.requestFocus();
             return;
         }
 
@@ -168,12 +181,26 @@ public class LoginActivity extends AppCompatActivity {
         editor.putString("lastUsername", username);
         editor.apply();
 
-        LoginRequest request = new LoginRequest(username, password);
+        LoginRequest loginRequest = new LoginRequest(username, password);
 
-        apiService.login(request).enqueue(new Callback<Account>() {
+        // Sử dụng raw endpoint để parse JSON bọc
+        apiService.loginRaw(loginRequest).enqueue(new Callback<okhttp3.ResponseBody>() {
             @Override
-            public void onResponse(Call<Account> call, Response<Account> response) {
+            public void onResponse(Call<okhttp3.ResponseBody> call, Response<okhttp3.ResponseBody> response) {
+                // Log để debug
+                System.out.println("Response code: " + response.code());
+                System.out.println("Request data: email=" + username + ", password=" + password);
+                System.out.println("LoginRequest object: " + loginRequest.toString());
+                
                 if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        String responseBody = response.body().string();
+                        System.out.println("Raw response body: " + responseBody);
+                        parseLoginResponseRaw(responseBody);
+                    } catch (Exception e) {
+                        System.out.println("Error reading response body: " + e.getMessage());
+                        Toast.makeText(LoginActivity.this, "Lỗi đọc dữ liệu phản hồi", Toast.LENGTH_SHORT).show();
+                    }
                     Account account = response.body();
 
                     // Lưu session
@@ -221,14 +248,74 @@ public class LoginActivity extends AppCompatActivity {
                     startActivity(intent);
                     finish();
                 } else {
-                    Toast.makeText(LoginActivity.this, "Sai thông tin đăng nhập", Toast.LENGTH_SHORT).show();
+                    showLoginError(response.code());
                 }
             }
 
             @Override
-            public void onFailure(Call<Account> call, Throwable t) {
+            public void onFailure(Call<okhttp3.ResponseBody> call, Throwable t) {
+                System.out.println("Login error: " + t.getMessage());
                 Toast.makeText(LoginActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void parseLoginResponseRaw(String responseString) {
+        try {
+            System.out.println("Parsing raw login response: " + responseString);
+            com.google.gson.Gson gson = new com.google.gson.Gson();
+            com.google.gson.JsonObject root = gson.fromJson(responseString, com.google.gson.JsonObject.class);
+            
+            if (root != null && root.has("data") && root.get("data").isJsonObject()) {
+                com.google.gson.JsonObject data = root.getAsJsonObject("data");
+                if (data.has("account") && data.get("account").isJsonObject()) {
+                    com.google.gson.JsonObject account = data.getAsJsonObject("account");
+                    
+                    // Extract account info
+                    int accountId = account.has("accountId") ? account.get("accountId").getAsInt() : 0;
+                    String fullName = account.has("fullName") ? account.get("fullName").getAsString() : "";
+                    String email = account.has("email") ? account.get("email").getAsString() : "";
+                    int role = account.has("role") ? account.get("role").getAsInt() : 0;
+                    
+                    if (accountId > 0) {
+                        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+                        SharedPreferences.Editor editor = prefs.edit();
+                        editor.putString("userId", String.valueOf(accountId));
+                        editor.putString("userName", fullName);
+                        editor.putString("email", email);
+                        editor.putInt("role", role);
+                        editor.putLong("lastLoginTime", System.currentTimeMillis());
+                        editor.apply();
+
+                        Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(LoginActivity.this, role == 4 ? HomeActivityCitizen.class : HomeActivity.class);
+                        intent.putExtra("firstname", fullName);
+                        startActivity(intent);
+                        finish();
+                        return;
+                    }
+                }
+            }
+            
+            // Nếu không parse được, hiển thị lỗi
+            showLoginError(0);
+        } catch (Exception e) {
+            System.out.println("Error parsing raw login response: " + e.getMessage());
+            showLoginError(0);
+        }
+    }
+
+    private void showLoginError(int responseCode) {
+        String errorMessage = "Lỗi đăng nhập";
+        if (responseCode == 401) {
+            errorMessage = "Sai tên đăng nhập hoặc mật khẩu";
+        } else if (responseCode == 500) {
+            errorMessage = "Lỗi máy chủ, vui lòng thử lại sau";
+        } else if (responseCode == 404) {
+            errorMessage = "Không tìm thấy tài khoản";
+        } else if (responseCode > 0) {
+            errorMessage = "Lỗi đăng nhập (Code: " + responseCode + ")";
+        }
+        Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
     }
 }
