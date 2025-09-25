@@ -5,8 +5,12 @@ import java.util.Map;
 import com.example.smartbinapp.model.Account;
 import com.example.smartbinapp.model.ApiMessage;
 import com.example.smartbinapp.model.Bin;
+import com.example.smartbinapp.model.Feedback;
+import com.example.smartbinapp.model.FeedbackStats;
 import com.example.smartbinapp.model.LoginRequest;
 import com.example.smartbinapp.model.Province;
+import com.example.smartbinapp.model.Report;
+import com.example.smartbinapp.model.ReportRequest;
 import com.example.smartbinapp.model.Task;
 import com.example.smartbinapp.model.TaskSummary;
 import com.example.smartbinapp.model.Ward;
@@ -82,6 +86,62 @@ public interface ApiService {
             @Part("lng") RequestBody lng,
             @Part MultipartBody.Part image
     );
+
+    // API cho chức năng xem thùng rác gần nhất
+    @GET("api/bins/nearby")
+    Call<List<Bin>> getNearbyBins(
+            @Query("latitude") double latitude,
+            @Query("longitude") double longitude
+    );
+
+    // Raw response for nearby bins to handle server format
+    @GET("api/bins/nearby")
+    Call<ResponseBody> getNearbyBinsRaw(
+            @Query("latitude") double latitude,
+            @Query("longitude") double longitude,
+            @Query("radius") int radius
+    );
+
+    // New endpoint for Hoi An nearby bins
+    @GET("api/app/bins/nearby/hoian")
+    Call<ResponseBody> getNearbyBinsHoiAn();
+
+    // API cho chức năng báo thùng đầy/tràn
+    @POST("api/reports/create")
+    Call<Report> createReport(@Body ReportRequest request);
+
+    @Multipart
+    @POST("api/reports/upload-image")
+    Call<ResponseBody> uploadReportImage(
+            @Part MultipartBody.Part image,
+            @Query("reportId") Integer reportId
+    );
+
+    // API cho chức năng theo dõi xử lý phản ánh
+    @GET("api/app/reports/user/{userId}")
+    Call<List<Report>> getUserReports(@Path("userId") String userId);
+
+    // Raw responses to handle wrapped formats { status, message, data }
+    @GET("api/app/reports/user/{userId}")
+    Call<ResponseBody> getUserReportsRaw(@Path("userId") String userId);
+
+    // Fallback endpoint cũ
+    @GET("api/reports/user/{userId}")
+    Call<List<Report>> getUserReportsOld(@Path("userId") String userId);
+
+    @GET("api/reports/user/{userId}")
+    Call<ResponseBody> getUserReportsOldRaw(@Path("userId") String userId);
+
+    @GET("api/app/reports/{reportId}")
+    Call<Report> getReportDetails(@Path("reportId") int reportId);
+
+    // API cho chức năng chấm điểm/đánh giá
+    @POST("api/feedbacks/create")
+    Call<Feedback> createFeedback(@Body Feedback feedback);
+
+    @GET("api/feedbacks/stats/ward/{wardId}")
+    Call<FeedbackStats> getFeedbackStats(@Path("wardId") int wardId);
+
 //    @GET("p/?depth=1")
 //    Call<List<Province>> getProvinces();
 //
