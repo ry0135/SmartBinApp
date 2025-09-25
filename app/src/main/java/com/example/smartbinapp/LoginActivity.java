@@ -4,6 +4,7 @@ import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.LinearLayout;
@@ -14,11 +15,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.smartbinapp.model.Account;
+import com.example.smartbinapp.model.ApiMessage;
 import com.example.smartbinapp.model.LoginRequest;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.firebase.messaging.FirebaseMessaging;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -38,7 +44,7 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Check session: Nếu đã đăng nhập trước đó thì bỏ qua màn hình Login
+        // Check session: nếu đã đăng nhập thì chuyển thẳng vào Home
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String savedUserId = prefs.getString("userId", null);
         if (savedUserId != null) {
@@ -49,21 +55,22 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
+        // Load layout
         setContentView(R.layout.activity_login);
 
-        // Khởi tạo View
+        // Init View
         initializeViews();
 
-        // Khởi tạo Retrofit
+        // Retrofit
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
-        // Điền lại username/email gần nhất nếu có
+        // Điền lại username/email gần nhất
         String lastUsername = prefs.getString("lastUsername", null);
         if (lastUsername != null) {
             etUsername.setText(lastUsername);
         }
 
-        // Animation khi mở màn hình
+        // Animation
         startEntranceAnimations();
 
         // Gán sự kiện click
@@ -169,6 +176,7 @@ public class LoginActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     Account account = response.body();
 
+                    // Lưu session
                     SharedPreferences.Editor editor = prefs.edit();
                     editor.putString("userId", String.valueOf(account.getAccountId()));
                     editor.putString("userName", account.getFullName());
@@ -176,6 +184,37 @@ public class LoginActivity extends AppCompatActivity {
                     editor.putLong("lastLoginTime", System.currentTimeMillis());
                     editor.apply();
 
+                    // ✅ Lấy token FCM và gửi lên server
+                    FirebaseMessaging.getInstance().getToken()
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    String token = task.getResult();
+                                    Log.d("FCM", "FCM Token: " + token);
+
+                                    Map<String, String> body = new HashMap<>();
+                                    body.put("token", token);
+
+                                    apiService.updateFcmToken(account.getAccountId(), body)
+                                            .enqueue(new Callback<ApiMessage>() {
+                                                @Override
+                                                public void onResponse(Call<ApiMessage> call,
+                                                                       Response<ApiMessage> response) {
+                                                    if (response.isSuccessful()) {
+                                                        Log.d("FCM", "✅ Token saved to server");
+                                                    } else {
+                                                        Log.e("FCM", "❌ Error saving token: " + response.code());
+                                                    }
+                                                }
+
+                                                @Override
+                                                public void onFailure(Call<ApiMessage> call, Throwable t) {
+                                                    Log.e("FCM", "❌ Failed to save token: " + t.getMessage());
+                                                }
+                                            });
+                                }
+                            });
+
+                    // Chuyển sang HomeActivity
                     Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
                     Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
                     intent.putExtra("firstname", account.getFullName());
