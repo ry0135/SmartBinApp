@@ -216,32 +216,19 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        String fullAddress = addressDetail;
-        
-        if (selectedWard != null) {
-            fullAddress = selectedWard.getWardName() + ", " + fullAddress;
-        }
-        
-        if (selectedProvince != null) {
-            fullAddress = fullAddress + ", " + selectedProvince.getProvinceName();
-        }
+        String fullAddress = (selectedWard != null ? selectedWard.getWardName() : "") + ", "
+                + (selectedProvince != null ? selectedProvince.getProvinceName() : "") + ", "
+                + addressDetail;
 
         // ⚡ Tạo đối tượng Account
         Account account = new Account();
         account.setFullName(fullName);
         account.setEmail(email);
         account.setPhone(phone);
-        account.setAddress(fullAddress);
+        account.setWardId(selectedWard.getWardId());
         account.setPassword(password);
-        account.setRole(3); // mặc định role = 3
+        account.setRole(4); // mặc định role = 3
         account.setStatus(0);
-        
-        // Kiểm tra selectedWard có null không
-        if (selectedWard != null) {
-            account.setWardId(selectedWard.getWardId()); // Chỉ dùng 1 trường wardId
-        } else {
-            account.setWardId(1); // Set WardID mặc định = 1 (hoặc ID hợp lệ trong database)
-        }
 
         apiService.register(account).enqueue(new Callback<Account>() {
             @Override

@@ -5,88 +5,44 @@
     android:layout_height="match_parent"
     android:background="#F5F5F5">
 
-    <!-- Top Bar -->
-    <LinearLayout
-        android:id="@+id/top_bar"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:background="#FFFFFF"
-        android:elevation="4dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp"
-        app:layout_constraintTop_toTopOf="parent">
+    <!-- Toolbar -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="#4CAF50"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        app:title="Danh sách nhiệm vụ"
+        app:titleTextColor="@android:color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="CleanCity"
-            android:textColor="#333333"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <ImageView
-            android:id="@+id/iv_menu"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_menu"
-            android:tint="#666666" />
-    </LinearLayout>
-
-    <!-- Map Container -->
-    <FrameLayout
-        android:id="@+id/map_container"
-        android:layout_width="match_parent"
+    <!-- RecyclerView danh sách batch -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerTaskSummary"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@+id/top_bar"
-        app:layout_constraintBottom_toTopOf="@+id/bottom_navigation">
-
-        <vn.vietmap.vietmapsdk.maps.MapView
-            android:id="@+id/vmMapView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            app:vietmap_cameraZoom="1"
-            android:visibility="visible"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintHeight_percent="1"/>
-
-        <!-- Floating Action Button for Report -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_report"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_margin="16dp"
-            android:src="@drawable/ic_report"
-            app:backgroundTint="#4CAF50"
-            app:tint="#FFFFFF" />
-
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_my_location"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            android:layout_alignParentEnd="true"
-            android:layout_margin="16dp"
-            android:contentDescription="Vị trí của tôi"
-            android:src="@drawable/ic_my_location"
-            app:backgroundTint="@color/teal_200" />
-    </FrameLayout>
+        android:padding="8dp"
+        android:clipToPadding="false"
+        android:scrollbars="vertical"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Bottom Navigation -->
     <LinearLayout
         android:id="@+id/bottom_navigation"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="70dp"
         android:background="#FFFFFF"
         android:elevation="8dp"
         android:orientation="horizontal"
         android:gravity="center"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
         <!-- Home Button -->
         <LinearLayout
@@ -102,18 +58,16 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@drawable/ic_home"
-                android:tint="#4CAF50" />
+                android:tint="#666666" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Home"
-                android:textColor="#4CAF50"
+                android:textColor="#666666"
                 android:textSize="12sp"
                 android:layout_marginTop="4dp" />
         </LinearLayout>
-
-
 
         <!-- Report Button -->
         <LinearLayout
@@ -140,7 +94,7 @@
                 android:layout_marginTop="4dp" />
         </LinearLayout>
 
-        <!-- Report Button -->
+        <!-- Task Button -->
         <LinearLayout
             android:id="@+id/btn_showtask"
             android:layout_width="0dp"
@@ -154,13 +108,13 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@drawable/ic_flag"
-                android:tint="#666666" />
+                android:tint="#4CAF50" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Nhiệm vụ"
-                android:textColor="#666666"
+                android:textColor="#4CAF50"
                 android:textSize="12sp"
                 android:layout_marginTop="4dp" />
         </LinearLayout>
@@ -190,4 +144,5 @@
                 android:layout_marginTop="4dp" />
         </LinearLayout>
     </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
