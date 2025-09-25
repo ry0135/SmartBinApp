@@ -1,33 +1,21 @@
 package com.example.smartbinapp.model;
 
-
 import java.util.Date;
 
 public class Account {
-
-
-    private Integer  accountId;
-
+    private Integer accountId;
     private String fullName;
-
     private String email;
-
     private String password;
-
     private String phone;
 
     private int role; // 1 = Admin, 2 = Nhân viên, 3 = Người dân
-
-    private int status ; // 1 = hoạt động, 0 = khóa
-
-    private String  address ; // 1 = hoạt động, 0 = khóa
-
-    private String  code ; // 1 = hoạt động, 0 = khóa
-    private Date createdAt = new Date();
-
-    private Boolean  IsVerified  ; // 1 = hoạt động, 0 = khóa
-
-    private Integer  wardID;
+    private int status; // 1 = hoạt động, 0 = khóa
+    private String address; 
+    private String code;
+    private Integer wardId; // WardID để tham chiếu đến bảng Wards
+    private Date createdAt;
+    private Boolean IsVerified; // true = đã xác thực, false = chưa xác thực
 
     public Account() {
     }
@@ -49,10 +37,10 @@ public class Account {
     }
 
     // Getters và Setters
-    public int getAccountId() {
+    public Integer getAccountId() {
         return accountId;
     }
-    public void setAccountId(int accountId) {
+    public void setAccountId(Integer accountId) {
         this.accountId = accountId;
     }
 
@@ -114,10 +102,6 @@ public class Account {
         this.address = address;
     }
 
-    public void setAccountId(Integer accountId) {
-        this.accountId = accountId;
-    }
-
     public String getCode() {
         return code;
     }
@@ -126,19 +110,37 @@ public class Account {
         this.code = code;
     }
 
-    public Boolean getVerified() {
+    public Boolean getIsVerified() {
         return IsVerified;
     }
 
-    public void setVerified(Boolean verified) {
-        IsVerified = verified;
+    public void setIsVerified(Boolean isVerified) {
+        IsVerified = isVerified;
     }
 
-    public Integer getWardID() {
-        return wardID;
+    public Integer getWardId() {
+        return wardId;
     }
 
-    public void setWardID(Integer wardID) {
-        this.wardID = wardID;
+    public void setWardId(Integer wardId) {
+        this.wardId = wardId;
+    }
+
+    @Override
+    public String toString() {
+        return "Account{" +
+                "accountId=" + accountId +
+                ", fullName='" + fullName + '\'' +
+                ", email='" + email + '\'' +
+                ", password='" + password + '\'' +
+                ", phone='" + phone + '\'' +
+                ", role=" + role +
+                ", status=" + status +
+                ", address='" + address + '\'' +
+                ", code='" + code + '\'' +
+                ", wardId=" + wardId +
+                ", createdAt=" + createdAt +
+                ", IsVerified=" + IsVerified +
+                '}';
     }
 }

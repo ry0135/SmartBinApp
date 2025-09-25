@@ -4,7 +4,11 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_LOCATION_EXTRA_COMMANDS"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
@@ -17,6 +21,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SmartBinApp"
         android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="31">
         
         <activity
@@ -48,11 +53,41 @@
             android:name=".HomeActivity"
             android:exported="false" />
         <activity
+            android:name=".HomeActivityCitizen"
+            android:exported="false"
+            android:label="SmartBin Citizen" />
+        <activity
             android:name=".ProfileActivity"
             android:exported="false" />
         <activity
             android:name=".EditProfileActivity"
             android:exported="false" />
+            
+        <activity
+            android:name=".NearbyBinsActivity"
+            android:exported="false"
+            android:label="Thùng rác gần đây" />
+
+        <activity
+            android:name=".ReportBinActivity"
+            android:exported="false"
+            android:label="Báo cáo thùng rác" />
+
+        <activity
+            android:name=".ReportsListActivity"
+            android:exported="false"
+            android:label="Báo cáo của tôi" />
+
+        <activity
+            android:name=".ReportDetailActivity"
+            android:exported="false"
+            android:label="Chi tiết báo cáo" />
+
+        <activity
+            android:name=".FeedbackActivity"
+            android:exported="false"
+            android:label="Đánh giá dịch vụ" />
+            
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBE8J3XrpWDUEkEL8CMLAGC5KjOHB86tpE" />
