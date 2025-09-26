@@ -20,6 +20,15 @@ public class StepView extends LinearLayout {
         init();
     }
 
+
+
+
+
+
+
+
+
+
     public StepView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         init();
