@@ -19,9 +19,13 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK1", "\"http://localhost:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://127.0.0.1:8080/SmartBinWeb_war/\"")
         }
         release {
-            buildConfigField("String", "BASE_URL", "\"http://34.172.71.215:8080/SmartBin/\"")
+            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK1", "\"http://localhost:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://127.0.0.1:8080/SmartBinWeb_war/\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -41,27 +45,29 @@ android {
 }
 
 dependencies {
-
-
-//    // AndroidX Core (fix CoreComponentFactory error)
-//    implementation ("androidx.core:core:1.13.1")
-//    implementation ("androidx.appcompat:appcompat:1.6.1")
-//    implementation ("com.google.android.material:material:1.9.0")
-
     // Retrofit + OkHttp
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.2")
 
+    // Maps & Location
     implementation("com.google.android.gms:play-services-maps:18.2.0")
-
-
-    implementation ("com.github.vietmap-company:maps-sdk-android:2.0.4")
-    implementation ("com.github.vietmap-company:maps-sdk-plugin-localization-android:2.0.0")
-    implementation ("com.github.vietmap-company:vietmap-services-geojson-android:1.0.0")
-    implementation ("com.github.vietmap-company:vietmap-services-turf-android:1.0.2")
-    implementation ("com.squareup.okhttp3:okhttp:4.9.3")
-    implementation ("com.google.code.gson:gson:2.10.1")
+    implementation("com.github.vietmap-company:maps-sdk-android:2.0.4")
+    implementation("com.github.vietmap-company:maps-sdk-plugin-localization-android:2.0.0")
+    implementation("com.github.vietmap-company:vietmap-services-geojson-android:1.0.0")
+    implementation("com.github.vietmap-company:vietmap-services-turf-android:1.0.2")
+    
+    // Networking & JSON
+    implementation("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Image Loading
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+    
+    // UI Components
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation("com.github.shuhart:stepview:1.5.1")
 
     implementation(libs.appcompat)
     implementation(libs.material)

@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.smartbinapp.model.Account;
+import com.example.smartbinapp.model.UpdateProfileResponse;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 
@@ -74,28 +75,48 @@ public class EditProfileActivity extends AppCompatActivity {
         account.setPhone(phone);
         account.setAddress(address);
 
-        apiService.updateAccount(userId, account).enqueue(new Callback<Account>() {
+        apiService.updateAccount(userId, account).enqueue(new Callback<UpdateProfileResponse>() {
             @Override
-            public void onResponse(Call<Account> call, Response<Account> response) {
+            public void onResponse(Call<UpdateProfileResponse> call, Response<UpdateProfileResponse> response) {
+                // Log để debug
+                System.out.println("Response code: " + response.code());
+                System.out.println("Response body: " + response.body());
+                
                 if (response.isSuccessful() && response.body() != null) {
-                    // Lưu lại session mới
-                    SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.putString("userName", fullName);
-//                    editor.putString("email", email);
-                    editor.putString("phone", phone);
-                    editor.putString("address", address);
-                    editor.apply();
+                    UpdateProfileResponse updateResponse = response.body();
+                    
+                    if (updateResponse.isSuccess()) {
+                        // Lưu lại session mới
+                        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+                        SharedPreferences.Editor editor = prefs.edit();
+                        editor.putString("userName", fullName);
+                        editor.putString("phone", phone);
+                        editor.putString("address", address);
+                        editor.apply();
 
-                    Toast.makeText(EditProfileActivity.this, "Cập nhật thành công!", Toast.LENGTH_SHORT).show();
-                    finish();
+                        Toast.makeText(EditProfileActivity.this, "Cập nhật thành công!", Toast.LENGTH_SHORT).show();
+                        finish();
+                    } else {
+                        String errorMsg = updateResponse.getMessage() != null ? 
+                            updateResponse.getMessage() : "Không thể cập nhật thông tin";
+                        Toast.makeText(EditProfileActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
+                    }
                 } else {
-                    Toast.makeText(EditProfileActivity.this, "Không thể cập nhật thông tin", Toast.LENGTH_SHORT).show();
+                    String errorMessage = "Lỗi cập nhật (Code: " + response.code() + ")";
+                    if (response.code() == 401) {
+                        errorMessage = "Không có quyền cập nhật";
+                    } else if (response.code() == 500) {
+                        errorMessage = "Lỗi máy chủ, vui lòng thử lại sau";
+                    } else if (response.code() == 404) {
+                        errorMessage = "Không tìm thấy tài khoản";
+                    }
+                    Toast.makeText(EditProfileActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
-            public void onFailure(Call<Account> call, Throwable t) {
+            public void onFailure(Call<UpdateProfileResponse> call, Throwable t) {
+                System.out.println("Update error: " + t.getMessage());
                 Toast.makeText(EditProfileActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });

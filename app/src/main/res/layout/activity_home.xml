@@ -32,7 +32,11 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_menu"
-            android:tint="#666666" />
+            android:tint="#666666"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp" />
     </LinearLayout>
 
     <!-- Map Container -->
@@ -63,6 +67,19 @@
             android:src="@drawable/ic_report"
             app:backgroundTint="#4CAF50"
             app:tint="#FFFFFF" />
+
+        <!-- Menu Button -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_menu"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginBottom="80dp"
+            android:layout_marginEnd="16dp"
+            android:src="@drawable/ic_menu"
+            app:backgroundTint="#9C27B0"
+            app:tint="#FFFFFF"
+            app:fabSize="mini" />
     </FrameLayout>
 
     <!-- Bottom Navigation -->
