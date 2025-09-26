@@ -50,6 +50,10 @@ public interface ApiService {
     @POST("api/accounts/login")
     Call<Account> login(@Body LoginRequest loginRequest);
 
+    // Raw response cho đăng nhập để tự parse JSON bọc {status, message, data}
+    @POST("api/accounts/login")
+    Call<ResponseBody> loginRaw(@Body LoginRequest loginRequest);
+
     @GET("api/bins")
     Call<List<Bin>> getAllBins();
 
