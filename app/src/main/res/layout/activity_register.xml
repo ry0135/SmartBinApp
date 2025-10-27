@@ -108,7 +108,8 @@
                     android:layout_height="wrap_content"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     app:startIconDrawable="@drawable/ic_lock"
-                    app:passwordToggleEnabled="true">
+                    app:passwordToggleEnabled="true"
+                    app:helperText="Ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/et_password"

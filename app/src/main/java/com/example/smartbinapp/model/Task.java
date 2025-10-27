@@ -14,7 +14,8 @@ public class Task {
 
     private Date createdAt;   // để Gson parse JSON ISO8601
     private Date completedAt;
-
+    private Double completedLat;
+    private Double completedLng;
     private Account assignedTo; // thêm vào để khớp JSON backend
 
     private String beforeImage;
@@ -50,6 +51,22 @@ public class Task {
 
     public String getBeforeImage() { return beforeImage; }
     public void setBeforeImage(String beforeImage) { this.beforeImage = beforeImage; }
+
+    public Double getCompletedLat() {
+        return completedLat;
+    }
+
+    public void setCompletedLat(Double completedLat) {
+        this.completedLat = completedLat;
+    }
+
+    public Double getCompletedLng() {
+        return completedLng;
+    }
+
+    public void setCompletedLng(Double completedLng) {
+        this.completedLng = completedLng;
+    }
 
     public String getAfterImage() { return afterImage; }
     public void setAfterImage(String afterImage) { this.afterImage = afterImage; }

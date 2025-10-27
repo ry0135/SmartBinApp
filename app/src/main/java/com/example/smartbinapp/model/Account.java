@@ -1,21 +1,50 @@
 package com.example.smartbinapp.model;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.util.Date;
 
 public class Account {
+    @SerializedName(value = "accountId", alternate = {"userId"})
     private Integer accountId;
+    @SerializedName("fullName")
     private String fullName;
+
+    @SerializedName("email")
     private String email;
+
+    @SerializedName("password")
     private String password;
+
+    @SerializedName("phone")
     private String phone;
 
-    private int role; // 1 = Admin, 2 = Nhân viên, 3 = Người dân
-    private int status; // 1 = hoạt động, 0 = khóa
-    private String address; 
+    @SerializedName("role")
+    private int role;
+
+    @SerializedName("status")
+    private int status;
+
+    // ⚠️ Đúng JSON thực tế backend trả về là "addressDetail"
+    @SerializedName("addressDetail")
+    private String addressDetail;
+
+    @SerializedName("code")
     private String code;
-    private Integer wardId; // WardID để tham chiếu đến bảng Wards
+
+    // ⚠️ JSON backend trả về "wardID", không phải "wardId"
+    @SerializedName("wardID")
+    private Integer wardID;
+
+    // ⚠️ JSON backend dùng "isVerified" viết thường “i”
+    @SerializedName("isVerified")
+    private Boolean isVerified;
+
+    @SerializedName("fcmToken")
+    private String fcmToken;
     private Date createdAt;
     private Boolean IsVerified; // true = đã xác thực, false = chưa xác thực
+    private String avatarUrl;
 
     public Account() {
     }
@@ -25,14 +54,14 @@ public class Account {
         this.code = code;
     }
 
-    public Account(String fullName, String email, String password, String phone, int role, int status, String address, Date createdAt) {
+    public Account(String fullName, String email, String password, String phone, int role, int status, String addressDetail, Date createdAt) {
         this.fullName = fullName;
         this.email = email;
         this.password = password;
         this.phone = phone;
         this.role = role;
         this.status = status;
-        this.address = address;
+        this.addressDetail = addressDetail;
         this.createdAt = createdAt;
     }
 
@@ -94,13 +123,7 @@ public class Account {
         this.createdAt = createdAt;
     }
 
-    public String getAddress() {
-        return address;
-    }
 
-    public void setAddress(String address) {
-        this.address = address;
-    }
 
     public String getCode() {
         return code;
@@ -108,6 +131,14 @@ public class Account {
 
     public void setCode(String code) {
         this.code = code;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     public Boolean getIsVerified() {
@@ -119,11 +150,19 @@ public class Account {
     }
 
     public Integer getWardId() {
-        return wardId;
+        return wardID;
     }
 
     public void setWardId(Integer wardId) {
-        this.wardId = wardId;
+        this.wardID = wardId;
+    }
+
+    public String getAddressDetail() {
+        return addressDetail;
+    }
+
+    public void setAddressDetail(String addressDetail) {
+        this.addressDetail = addressDetail;
     }
 
     @Override
@@ -136,9 +175,9 @@ public class Account {
                 ", phone='" + phone + '\'' +
                 ", role=" + role +
                 ", status=" + status +
-                ", address='" + address + '\'' +
+
                 ", code='" + code + '\'' +
-                ", wardId=" + wardId +
+                ", wardId=" + wardID +
                 ", createdAt=" + createdAt +
                 ", IsVerified=" + IsVerified +
                 '}';

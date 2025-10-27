@@ -50,9 +50,19 @@ public interface ApiService {
     @POST("api/accounts/login")
     Call<Account> login(@Body LoginRequest loginRequest);
 
+
+    @GET("api/accounts/{id}")
+    Call<Account> getUserById(@Path("id") String userId);
+
+    @POST("api/accounts/login")
+    Call<Account> loginRaw1(@Body LoginRequest loginRequest);
+    @POST("auth/login/google")
+    Call<ApiMessage> loginWithGoogle(@Body Map<String, String> body);
+
     // Raw response cho đăng nhập để tự parse JSON bọc {status, message, data}
     @POST("api/accounts/login")
     Call<ResponseBody> loginRaw(@Body LoginRequest loginRequest);
+
 
     @GET("api/bins")
     Call<List<Bin>> getAllBins();
@@ -60,7 +70,7 @@ public interface ApiService {
     @GET("api/bins/dto")
     Call<List<Bin>> getAllBinDTOs();
 
-    @PUT("accounts/{id}")
+    @PUT("api/accounts/update/{id}")
     Call<Account> updateAccount(@Path("id") String id, @Body Account account);
 
 
@@ -83,14 +93,13 @@ public interface ApiService {
 
 
     @Multipart
-    @POST("/tasks/complete")
-    Call<ApiMessage> completeTask(
+    @POST("api/tasks/complete")
+    Call<ApiMessage> completeTaskWithImage(
             @Part("taskId") RequestBody taskId,
             @Part("lat") RequestBody lat,
             @Part("lng") RequestBody lng,
-            @Part MultipartBody.Part image
+            @Part MultipartBody.Part proofImage
     );
-
     // API cho chức năng xem thùng rác gần nhất
     @GET("api/bins/nearby")
     Call<List<Bin>> getNearbyBins(
@@ -159,4 +168,12 @@ public interface ApiService {
 //    @GET("d/{districtCode}?depth=2") // ví dụ nếu API dùng theo kiểu này
 //    Call<WardResponse> getWardsWithDistrict(@Path("districtCode") String districtCode);
 //
+
+    @POST("api/accounts/forgot-password")
+    Call<ResponseBody> forgotPassword(@Query("email") String email);
+
+    @POST("api/accounts/reset-password")
+    Call<ResponseBody> resetPassword(@Query("email") String email, @Query("newPassword") String newPassword);
+
+
 }

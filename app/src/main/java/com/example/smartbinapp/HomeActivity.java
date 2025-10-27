@@ -3,6 +3,7 @@ package com.example.smartbinapp;
 import android.Manifest;
 import android.animation.ObjectAnimator;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -12,104 +13,87 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import vn.vietmap.vietmapsdk.Vietmap;
-import vn.vietmap.vietmapsdk.WellKnownTileServer;
 
-import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.example.smartbinapp.model.Bin;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
+import com.example.smartbinapp.service.BinWebSocketService;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.messaging.FirebaseMessaging;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import vn.vietmap.vietmapsdk.Vietmap;
+import vn.vietmap.vietmapsdk.annotations.Icon;
 import vn.vietmap.vietmapsdk.annotations.IconFactory;
+import vn.vietmap.vietmapsdk.annotations.Marker;
 import vn.vietmap.vietmapsdk.annotations.MarkerOptions;
 import vn.vietmap.vietmapsdk.camera.CameraUpdateFactory;
 import vn.vietmap.vietmapsdk.geometry.LatLng;
 import vn.vietmap.vietmapsdk.location.LocationComponent;
 import vn.vietmap.vietmapsdk.location.LocationComponentActivationOptions;
 import vn.vietmap.vietmapsdk.location.LocationComponentOptions;
-import vn.vietmap.vietmapsdk.location.engine.LocationEngine;
-import vn.vietmap.vietmapsdk.location.engine.LocationEngineCallback;
-import vn.vietmap.vietmapsdk.location.engine.LocationEngineRequest;
-import vn.vietmap.vietmapsdk.location.engine.LocationEngineResult;
 import vn.vietmap.vietmapsdk.location.modes.CameraMode;
 import vn.vietmap.vietmapsdk.location.modes.RenderMode;
 import vn.vietmap.vietmapsdk.maps.MapView;
-import vn.vietmap.vietmapsdk.maps.OnMapReadyCallback;
 import vn.vietmap.vietmapsdk.maps.Style;
 import vn.vietmap.vietmapsdk.maps.VietMapGL;
 
-
 public class HomeActivity extends AppCompatActivity {
 
-    private ImageView ivMenu;
-    private LinearLayout btnHome, btnReport, btnShowTask, btnAccount;
-    private FloatingActionButton fabReport;
-
-    private MapView mapView;
-    private VietMapGL vietmapGL;
-
+    private static final String TAG = "HomeActivity";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
 
+    // UI Components
+    private ImageView ivMenu;
+    private LinearLayout btnHome, btnReport, btnShowTask, btnAccount;
+    private FloatingActionButton fabnearBin, fabMyLocation;
+    private MapView mapView;
+    private DrawerLayout drawerLayout;
+    // Map & Location
+    private VietMapGL vietmapGL;
     private FusedLocationProviderClient fusedLocationClient;
-    private FloatingActionButton fabMyLocation;
+
+    // Cache icons and markers
+    private Bitmap iconRed, iconYellow, iconGreen, iconDefault; // 🟢 Thêm iconDefault
+    private final Map<Integer, Marker> markerMap = new HashMap<>();
+
+    // Realtime WebSocket
+    private final BinWebSocketService wsService = new BinWebSocketService();
+
+
+    // ------------------- Lifecycle Methods -------------------
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // ✅ Khởi tạo Vietmap SDK trước khi inflate layout
         Vietmap.getInstance(this);
-
-
         setContentView(R.layout.activity_home);
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(
-                        new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
-                        101
-                );
-            }
-        }
-
-
-
-        FirebaseMessaging.getInstance().getToken()
-                .addOnCompleteListener(task -> {
-                    if (!task.isSuccessful()) {
-                        Log.w("FCM", "Lấy token thất bại", task.getException());
-                        return;
-                    }
-                    // Token
-                    String token = task.getResult();
-                    Log.d("FCM", "FCM Token (HomeActivity): " + token);
-
-                    // Có thể show luôn ra màn hình
-                    Toast.makeText(HomeActivity.this, "FCM Token: " + token, Toast.LENGTH_LONG).show();
-                });
+        // Initialization
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         mapView = findViewById(R.id.vmMapView);
         mapView.onCreate(savedInstanceState);
-
+        initializeFCMAndPermissions();
         initializeViews();
         startEntranceAnimations();
         setupClickListeners();
@@ -118,60 +102,75 @@ public class HomeActivity extends AppCompatActivity {
             vietmapGL = map;
             vietmapGL.setStyle(
                     new Style.Builder().fromUri("https://maps.vietmap.vn/api/maps/light/styles.json?apikey=ecdbd35460b2d399e18592e6264186757aaaddd8755b774c"),
-                    style -> {
-                        if (ActivityCompat.checkSelfPermission(this,
-                                Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                            enableLocationComponent();
-                        } else {
-                            ActivityCompat.requestPermissions(this,
-                                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                                    LOCATION_PERMISSION_REQUEST_CODE);
-                        }
-                        loadBinsFromApi();
-                    }
+                    this::onStyleLoaded
             );
         });
+
+        // Lắng nghe dữ liệu realtime từ WebSocket
+        wsService.setListener(this::onBinUpdateReceived);
     }
 
+    // ------------------- Map Callbacks -------------------
+
+    private void onStyleLoaded(Style style) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            enableLocationComponent();
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE);
+        }
+        // Load danh sách thùng ban đầu
+        mapView.postDelayed(this::loadBinsFromApi, 800);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (vietmapGL != null && vietmapGL.getStyle() != null) {
+                    enableLocationComponent();
+                }
+            } else {
+                Toast.makeText(this, "Cần quyền truy cập vị trí để sử dụng tính năng này", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+    // ------------------- Data Handling & WebSocket -------------------
 
     private void loadBinsFromApi() {
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
-
         apiService.getAllBinDTOs().enqueue(new Callback<List<Bin>>() {
             @Override
             public void onResponse(Call<List<Bin>> call, Response<List<Bin>> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    initIcons(); // Khởi tạo icons trước khi dùng
                     for (Bin bin : response.body()) {
-                        int percent = (int) ((bin.getCurrentFill() / bin.getCapacity()) * 100);
-
-                        LatLng position = new LatLng(bin.getLatitude(), bin.getLongitude());
-                        String title = bin.getBinCode() + " - " + percent + "% đầy";
-                        String snippet = bin.getStreet() + ", " + bin.getWardName() + ", " + bin.getProvinceName();
-
-                        int iconRes;
-                        if (percent > 80) {
-                            iconRes = R.drawable.ic_bin_red;
-                        } else if (percent > 40) {
-                            iconRes = R.drawable.ic_bin_yellow;
-                        } else {
-                            iconRes = R.drawable.ic_bin_green;
-                        }
-
-                        vietmapGL.addMarker(new MarkerOptions()
-                                .position(position)
-                                .title(title)
-                                .snippet(snippet)
-                                .icon(IconFactory.getInstance(HomeActivity.this)
-                                        .fromBitmap(getBitmapFromVectorDrawable(iconRes))));
+                        addOrUpdateMarker(bin, false); // Thêm marker ban đầu
                     }
 
                     vietmapGL.setOnMarkerClickListener(marker -> {
-                        Toast.makeText(HomeActivity.this,
-                                marker.getTitle() + "\n" + marker.getSnippet(),
-                                Toast.LENGTH_LONG).show();
-                        return false;
-                    });
+                        // Tìm Bin tương ứng theo marker title
+                        Bin clickedBin = null;
+                        for (Map.Entry<Integer, Marker> entry : markerMap.entrySet()) {
+                            if (entry.getValue().equals(marker)) {
+                                // Bạn có thể lưu thông tin Bin vào Map<Marker, Bin> để dễ hơn
+                                // Ở đây ta chỉ dựa vào entryId để gọi lại API chi tiết
+                                int binId = entry.getKey();
+                                clickedBin = new Bin();
+                                clickedBin.setBinId(binId);
+                                clickedBin.setBinCode(marker.getTitle());
+                                break;
+                            }
+                        }
 
+                        if (clickedBin != null) {
+                            showBinActionBottomSheet(clickedBin, marker);
+                        }
+                        return true; // chặn click mặc định
+                    });
                 } else {
                     Toast.makeText(HomeActivity.this, "Không tải được danh sách thùng rác", Toast.LENGTH_SHORT).show();
                 }
@@ -179,14 +178,195 @@ public class HomeActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<List<Bin>> call, Throwable t) {
+                Log.e(TAG, "Lỗi kết nối API: " + t.getMessage(), t);
                 Toast.makeText(HomeActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
-    @SuppressWarnings({"MissingPermission"})
+    private void showBinActionBottomSheet(Bin bin, Marker marker) {
+        android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.setContentView(R.layout.layout_bin_action_bottomsheet);
+
+        TextView tvBinTitle = dialog.findViewById(R.id.tvBinTitle);
+        TextView tvBinInfo = dialog.findViewById(R.id.tvBinInfo);
+        Button btnViewDetail = dialog.findViewById(R.id.btnViewDetail);
+        Button btnReportBin = dialog.findViewById(R.id.btnReportBin);
+
+        tvBinTitle.setText("🗑 Thùng " + marker.getTitle());
+        tvBinInfo.setText(marker.getSnippet());
+
+        btnViewDetail.setOnClickListener(v -> {
+            Intent intent = new Intent(HomeActivity.this, BinDetailActivity.class);
+            intent.putExtra("binId", bin.getBinId());
+            startActivity(intent);
+            dialog.dismiss();
+        });
+
+        btnReportBin.setOnClickListener(v -> {
+            Intent intent = new Intent(HomeActivity.this, ReportBinActivity.class);
+            intent.putExtra("bin_id", bin.getBinId());
+            intent.putExtra("bin_address", bin.getStreet() +"," + bin.getWardName()+"," + bin.getProvinceName());
+            intent.putExtra("bin_code", marker.getTitle());
+            startActivity(intent);
+            dialog.dismiss();
+        });
+
+        dialog.show();
+    }
+
+    private void onBinUpdateReceived(Bin updatedBin) {
+        // Cần chạy trên Main Thread vì liên quan đến việc cập nhật UI (Bản đồ)
+        runOnUiThread(() -> {
+            if (vietmapGL == null) return;
+            addOrUpdateMarker(updatedBin, true);
+
+            int percent = (int) ((updatedBin.getCurrentFill() / updatedBin.getCapacity()) * 100);
+            Toast.makeText(this,
+                    "📡 Cập nhật realtime: " + updatedBin.getBinCode() + " (" + percent + "%)",
+                    Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void addOrUpdateMarker(Bin bin, boolean isRealtimeUpdate) {
+        if (vietmapGL == null) return;
+
+        int percent = (int) ((bin.getCurrentFill() / bin.getCapacity()) * 100);
+
+        // 1. Lấy Icon đã được xử lý Density (từ hàm getSafeBinIcon đã sửa)
+        Icon icon = getSafeBinIcon(percent);
+
+        String title = bin.getBinCode() + " - " + percent + "% đầy";
+        String snippet = isRealtimeUpdate ?
+                "Cập nhật lúc: " + System.currentTimeMillis() : // Dùng System.currentTimeMillis() nếu bin.getLastUpdated() là epoch time quá dài
+                bin.getWardName() + ", " + bin.getProvinceName();
+
+
+        // XÓA MARKER CŨ
+        if (markerMap.containsKey(bin.getBinId())) {
+            Marker oldMarker = markerMap.remove(bin.getBinId());
+            if (oldMarker != null) {
+                vietmapGL.removeMarker(oldMarker);
+                Log.d(TAG, "Removed old marker for BinID: " + bin.getBinId());
+            }
+        }
+
+        // THÊM MARKER MỚI
+        Marker marker = vietmapGL.addMarker(new MarkerOptions()
+                .position(new LatLng(bin.getLatitude(), bin.getLongitude()))
+                .title(title)
+                .snippet(snippet)
+                .icon(icon)
+        );
+        markerMap.put(bin.getBinId(), marker);
+        Log.d(TAG, "Added new marker for BinID: " + bin.getBinId() + " with fill: " + percent + "%");
+    }
+
+    // ------------------- Icon Handling (Khắc phục lỗi màu đen) -------------------
+
+    private void initIcons() {
+        // Khởi tạo icons, lưu ý có thể trả về NULL nếu tệp drawable bị lỗi
+        if (iconRed == null) iconRed = getBitmapFromVectorDrawable(R.drawable.ic_bin_red);
+        if (iconYellow == null) iconYellow = getBitmapFromVectorDrawable(R.drawable.ic_bin_yellow);
+        if (iconGreen == null) iconGreen = getBitmapFromVectorDrawable(R.drawable.ic_bin_green);
+
+        // 🟢 Khởi tạo icon dự phòng (đảm bảo phải có tệp drawable này)
+        // Nếu không có ic_bin_default, bạn có thể dùng một icon vector khác chắc chắn có.
+        if (iconDefault == null) iconDefault = getBitmapFromVectorDrawable(R.drawable.ic_bin_green);
+    }
+
+    /**
+     * Trả về Icon (Vietmap) đã được kiểm tra, sử dụng icon mặc định nếu icon mong muốn bị lỗi.
+     * Đã sửa lỗi chữ ký hàm (signature) cho phiên bản SDK chỉ hỗ trợ 2 tham số.
+     */
+    private Icon getSafeBinIcon(int percent) {
+        Bitmap targetBitmap;
+        if (percent >= 80) targetBitmap = iconRed;
+        else if (percent >= 40) targetBitmap = iconYellow;
+        else targetBitmap = iconGreen;
+
+        if (targetBitmap == null) {
+            targetBitmap = iconDefault;
+        }
+
+        if (targetBitmap == null) {
+            return IconFactory.getInstance(this).defaultMarker();
+        }
+
+        // 🚨 BUỘC TẠO ICON MỚI KHÔNG DÙNG CACHE: fromBitmap
+        Icon icon = IconFactory.getInstance(this).fromBitmap(targetBitmap);
+
+        return icon;
+    }
+    /**
+     * Chuyển Vector Drawable sang Bitmap
+     */
+
+    @Nullable
+    private Bitmap getBitmapFromVectorDrawable(int drawableId) {
+        // 1. Lấy Drawable và đảm bảo nó có thể được thay đổi (mutate)
+        Drawable drawable = ContextCompat.getDrawable(this, drawableId);
+        if (drawable == null) {
+            Log.e(TAG, "Lỗi: Không tìm thấy Drawable ID: " + drawableId);
+            return null;
+        }
+
+        // Sao chép Drawable để không ảnh hưởng đến các lần vẽ khác
+        // Đây là bước quan trọng để tránh lỗi rendering cache
+        drawable = drawable.mutate();
+
+        try {
+            int targetWidthPx = dpToPx(30);
+            int targetHeightPx = dpToPx(30);
+            int densityDpi = getResources().getDisplayMetrics().densityDpi;
+
+            // 2. Tạo Bitmap với cấu hình ARGB_8888 (hỗ trợ trong suốt)
+            Bitmap bitmap = Bitmap.createBitmap(
+                    targetWidthPx,
+                    targetHeightPx,
+                    Bitmap.Config.ARGB_8888
+            );
+
+            // 3. Gán Density cho Bitmap (Rất quan trọng cho VietMap/Mapbox)
+            bitmap.setDensity(densityDpi);
+
+            // 4. Thiết lập Canvas và Bounds
+            Canvas canvas = new Canvas(bitmap);
+
+            // Đặt kích thước cố định cho drawable
+            drawable.setBounds(0, 0, targetWidthPx, targetHeightPx);
+
+            // 5. Vẽ
+            drawable.draw(canvas);
+
+            return bitmap;
+        } catch (Exception e) {
+            Log.e(TAG, "Lỗi nghiêm trọng khi tạo Bitmap từ Vector Drawable.", e);
+            return null;
+        }
+    }
+    private int dpToPx(int dp) {
+        return (int) (dp * getResources().getDisplayMetrics().density);
+    }
+    // ------------------- Utility & UI Methods -------------------
+
+    private void initializeFCMAndPermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
+
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+            if (task.isSuccessful() && task.getResult() != null) {
+                Log.d("FCM", "Token: " + task.getResult());
+            }
+        });
+    }
+
+    @SuppressWarnings("MissingPermission")
     private void enableLocationComponent() {
         LocationComponent locationComponent = vietmapGL.getLocationComponent();
-
         LocationComponentOptions customOptions = LocationComponentOptions.builder(this)
                 .foregroundDrawable(R.drawable.ic_my_location)
                 .backgroundDrawable(R.drawable.ic_my_location)
@@ -194,7 +374,7 @@ public class HomeActivity extends AppCompatActivity {
 
         LocationComponentActivationOptions options =
                 LocationComponentActivationOptions.builder(this, vietmapGL.getStyle())
-                        .useDefaultLocationEngine(true) // ✅ Cho SDK tự dùng LocationEngine bên trong
+                        .useDefaultLocationEngine(true)
                         .locationComponentOptions(customOptions)
                         .build();
 
@@ -203,41 +383,49 @@ public class HomeActivity extends AppCompatActivity {
         locationComponent.setCameraMode(CameraMode.TRACKING);
         locationComponent.setRenderMode(RenderMode.NORMAL);
 
-        // Test log vị trí
-        if (locationComponent.getLastKnownLocation() != null) {
-            double lat = locationComponent.getLastKnownLocation().getLatitude();
-            double lng = locationComponent.getLastKnownLocation().getLongitude();
-
+        Location last = locationComponent.getLastKnownLocation();
+        if (last != null) {
             vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                    new LatLng(lat, lng), 16));
+                    new LatLng(last.getLatitude(), last.getLongitude()), 16));
         } else {
-            Log.d("DEBUG_LOCATION", "Không có GPS → dùng fallback Đà Nẵng");
-
-            // Tạo location giả
-            Location fakeLocation = new Location("fallback");
-            fakeLocation.setLatitude(15.969114);
-            fakeLocation.setLongitude(108.260765);
-
-            // Gán cho LocationComponent
-            locationComponent.forceLocationUpdate(fakeLocation);
-
-            // Camera cũng bay đến đó
+            // Fallback: Di chuyển đến vị trí mặc định nếu không có vị trí cuối cùng
             vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
                     new LatLng(15.969114, 108.260765), 16));
         }
     }
 
-
-
+    private void moveToMyLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED && vietmapGL != null) {
+            LocationComponent lc = vietmapGL.getLocationComponent();
+            if (lc.getLastKnownLocation() != null) {
+                LatLng myLocation = new LatLng(
+                        lc.getLastKnownLocation().getLatitude(),
+                        lc.getLastKnownLocation().getLongitude()
+                );
+                vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(myLocation, 16));
+            } else {
+                Toast.makeText(this, "Không lấy được vị trí hiện tại", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
 
     private void initializeViews() {
         ivMenu = findViewById(R.id.iv_menu);
         btnHome = findViewById(R.id.btn_home);
         btnShowTask = findViewById(R.id.btn_showtask);
         btnAccount = findViewById(R.id.btn_account);
-        fabReport = findViewById(R.id.fab_report);
+        fabnearBin = findViewById(R.id.fab_nearbin);
         btnReport = findViewById(R.id.btn_report);
         fabMyLocation = findViewById(R.id.fab_my_location);
+
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+        int savedRole = prefs.getInt("role", 0); // Mặc định là 0 nếu chưa có
+
+        if (savedRole == 4) {
+            btnShowTask.setVisibility(View.GONE);
+            Log.d("RoleCheck", "Đã ẩn nút Nhiệm vụ vì người dùng là citizen");
+        }
     }
 
     private void startEntranceAnimations() {
@@ -252,148 +440,34 @@ public class HomeActivity extends AppCompatActivity {
         bottomNavAnimator.setStartDelay(200);
         bottomNavAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         bottomNavAnimator.start();
-
-        ObjectAnimator fabScaleX = ObjectAnimator.ofFloat(fabReport, "scaleX", 0f, 1f);
-        ObjectAnimator fabScaleY = ObjectAnimator.ofFloat(fabReport, "scaleY", 0f, 1f);
-        fabScaleX.setDuration(600);
-        fabScaleY.setDuration(600);
-        fabScaleX.setStartDelay(1000);
-        fabScaleY.setStartDelay(1000);
-        fabScaleX.start();
-        fabScaleY.start();
     }
 
     private void setupClickListeners() {
         ivMenu.setOnClickListener(v -> {
-            animateButtonClick(v);
-            Toast.makeText(this, "Menu", Toast.LENGTH_SHORT).show();
+            if (drawerLayout.isDrawerOpen(GravityCompat.END))
+                drawerLayout.closeDrawer(GravityCompat.END);
+            else
+                drawerLayout.openDrawer(GravityCompat.END);
         });
+        btnAccount.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
+        btnShowTask.setOnClickListener(v -> startActivity(new Intent(this, TaskSummaryActivity.class)));
 
-        btnHome.setOnClickListener(v -> {
-            animateButtonClick(v);
-            setActiveTab(btnHome, true);
-            setActiveTab(btnReport, false);
-            setActiveTab(btnShowTask, false);
-            setActiveTab(btnAccount, false);
-        });
+        fabMyLocation.setOnClickListener(v -> moveToMyLocation());
+        fabnearBin.setOnClickListener(v -> startActivity(new Intent(this, NearbyBinsActivity.class)));
 
+        // Thêm click listener cho nút Report trên Bottom Navigation
         btnReport.setOnClickListener(v -> {
-            animateButtonClick(v);
-            setActiveTab(btnHome, false);
-            setActiveTab(btnReport, true);
-            setActiveTab(btnShowTask, false);
-            setActiveTab(btnAccount, false);
-            Intent intent = new Intent(HomeActivity.this, TaskSummaryActivity.class);
+            Intent intent = new Intent(HomeActivity.this, ReportsListActivity.class);
             startActivity(intent);
-            finish();
-        });
-
-        btnShowTask.setOnClickListener(v -> {
-            animateButtonClick(v);
-            setActiveTab(btnHome, false);
-            setActiveTab(btnShowTask, true);
-            setActiveTab(btnReport, false);
-            setActiveTab(btnAccount, false);
-            Intent intent = new Intent(HomeActivity.this, TaskSummaryActivity.class);
-            startActivity(intent);
-            finish();
-        });
-
-        btnAccount.setOnClickListener(v -> {
-            animateButtonClick(v);
-            setActiveTab(btnHome, false);
-            setActiveTab(btnReport, false);
-            setActiveTab(btnShowTask, false);
-            setActiveTab(btnAccount, true);
-            Intent intent = new Intent(HomeActivity.this, ProfileActivity.class);
-            startActivity(intent);
-            finish();
-        });
-
-        fabReport.setOnClickListener(v -> {
-            animateButtonClick(v);
-            Toast.makeText(this, "Báo cáo vấn đề", Toast.LENGTH_SHORT).show();
-        });
-
-
-        fabMyLocation.setOnClickListener(v -> {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                    == PackageManager.PERMISSION_GRANTED && vietmapGL != null) {
-
-                LocationComponent locationComponent = vietmapGL.getLocationComponent();
-                if (locationComponent.getLastKnownLocation() != null) {
-                    LatLng myLocation = new LatLng(
-                            locationComponent.getLastKnownLocation().getLatitude(),
-                            locationComponent.getLastKnownLocation().getLongitude()
-                    );
-                    vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(myLocation, 16));
-                } else {
-                    Toast.makeText(this, "Không lấy được vị trí hiện tại", Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        LOCATION_PERMISSION_REQUEST_CODE);
-            }
         });
     }
 
-    private void setActiveTab(LinearLayout tab, boolean isActive) {
-        ImageView icon = (ImageView) tab.getChildAt(0);
-        TextView text = (TextView) tab.getChildAt(1);
+    // ------------------- MapView Lifecycle Overrides -------------------
 
-        int activeColor = getResources().getColor(android.R.color.holo_green_dark);
-        int inactiveColor = getResources().getColor(android.R.color.darker_gray);
-
-        icon.setColorFilter(isActive ? activeColor : inactiveColor);
-        text.setTextColor(isActive ? activeColor : inactiveColor);
-    }
-
-    private void animateButtonClick(View view) {
-        ObjectAnimator scaleDown = ObjectAnimator.ofFloat(view, "scaleX", 1f, 0.95f);
-        scaleDown.setDuration(100);
-        scaleDown.start();
-
-        ObjectAnimator scaleUp = ObjectAnimator.ofFloat(view, "scaleX", 0.95f, 1f);
-        scaleUp.setDuration(100);
-        scaleUp.setStartDelay(100);
-        scaleUp.start();
-    }
-
-    private Bitmap getBitmapFromVectorDrawable(int drawableId) {
-        Drawable drawable = ContextCompat.getDrawable(this, drawableId);
-        if (drawable == null) return null;
-
-        Bitmap bitmap = Bitmap.createBitmap(
-                drawable.getIntrinsicWidth(),
-                drawable.getIntrinsicHeight(),
-                Bitmap.Config.ARGB_8888
-        );
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-        return bitmap;
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                enableLocationComponent();
-            } else {
-                Toast.makeText(this, "Bạn cần cấp quyền vị trí để xem vị trí hiện tại", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-
-
-    // Lifecycle MapView
-    @Override protected void onStart() { super.onStart(); mapView.onStart(); }
+    @Override protected void onStart() { super.onStart(); mapView.onStart(); wsService.connect(); }
     @Override protected void onResume() { super.onResume(); mapView.onResume(); }
     @Override protected void onPause() { super.onPause(); mapView.onPause(); }
-    @Override protected void onStop() { super.onStop(); mapView.onStop(); }
+    @Override protected void onStop() { super.onStop(); mapView.onStop(); wsService.disconnect(); }
     @Override protected void onDestroy() { super.onDestroy(); mapView.onDestroy(); }
     @Override protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
