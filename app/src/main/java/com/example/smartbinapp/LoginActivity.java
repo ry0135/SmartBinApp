@@ -133,7 +133,6 @@ public class LoginActivity extends AppCompatActivity {
         scaleUpX.start();
         scaleUpY.start();
     }
-    // =================================================
 
     private void setupButtonListeners() {
         findViewById(R.id.btn_login).setOnClickListener(v -> {
@@ -195,6 +194,54 @@ public class LoginActivity extends AppCompatActivity {
                         System.out.println("Error reading response body: " + e.getMessage());
                         Toast.makeText(LoginActivity.this, "Lỗi đọc dữ liệu phản hồi", Toast.LENGTH_SHORT).show();
                     }
+
+                    Account account = response.body();
+
+                    // Lưu session
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putString("userId", String.valueOf(account.getAccountId()));
+                    editor.putString("userName", account.getFullName());
+                    editor.putString("email", account.getEmail());
+                    editor.putLong("lastLoginTime", System.currentTimeMillis());
+                    editor.apply();
+
+                    // ✅ Lấy token FCM và gửi lên server
+                    FirebaseMessaging.getInstance().getToken()
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    String token = task.getResult();
+                                    Log.d("FCM", "FCM Token: " + token);
+
+                                    Map<String, String> body = new HashMap<>();
+                                    body.put("token", token);
+
+                                    apiService.updateFcmToken(account.getAccountId(), body)
+                                            .enqueue(new Callback<ApiMessage>() {
+                                                @Override
+                                                public void onResponse(Call<ApiMessage> call,
+                                                                       Response<ApiMessage> response) {
+                                                    if (response.isSuccessful()) {
+                                                        Log.d("FCM", "✅ Token saved to server");
+                                                    } else {
+                                                        Log.e("FCM", "❌ Error saving token: " + response.code());
+                                                    }
+                                                }
+
+                                                @Override
+                                                public void onFailure(Call<ApiMessage> call, Throwable t) {
+                                                    Log.e("FCM", "❌ Failed to save token: " + t.getMessage());
+                                                }
+                                            });
+                                }
+                            });
+
+                    // Chuyển sang HomeActivity
+                    Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
+                    intent.putExtra("firstname", account.getFullName());
+                    startActivity(intent);
+                    finish();
+
                 } else {
                     showLoginError(response.code());
                 }
