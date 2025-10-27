@@ -19,7 +19,7 @@ import com.example.smartbinapp.adapter.ReportImagesAdapter;
 import com.example.smartbinapp.model.Report;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
-import com.example.smartbinapp.utils.StepView;
+ 
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -43,7 +43,11 @@ public class ReportDetailActivity extends AppCompatActivity {
     private RecyclerView rvImages;
     private TextView tvNoImages;
     private CardView cardImages;
-    private StepView stepView;
+    private View stepContainer;
+    private TextView step1;
+    private TextView step2;
+    private TextView step3;
+    private TextView step4;
     private Button btnRate;
     private ProgressBar progressBar;
 
@@ -91,7 +95,11 @@ public class ReportDetailActivity extends AppCompatActivity {
         rvImages = findViewById(R.id.rvImages);
         tvNoImages = findViewById(R.id.tvNoImages);
         cardImages = findViewById(R.id.cardImages);
-        stepView = findViewById(R.id.stepView);
+        stepContainer = findViewById(R.id.stepContainer);
+        step1 = findViewById(R.id.step1);
+        step2 = findViewById(R.id.step2);
+        step3 = findViewById(R.id.step3);
+        step4 = findViewById(R.id.step4);
         btnRate = findViewById(R.id.btnRate);
         progressBar = findViewById(R.id.progressBar);
     }
@@ -114,14 +122,7 @@ public class ReportDetailActivity extends AppCompatActivity {
     }
 
     private void setupStepView() {
-        try {
-            if (stepView != null) {
-                List<String> steps = Arrays.asList("Tiếp nhận", "Phân công", "Xử lý", "Hoàn thành");
-                stepView.setSteps(steps);
-            }
-        } catch (Exception e) {
-            System.out.println("Error setting up step view: " + e.getMessage());
-        }
+        // Không cần cấu hình đặc biệt cho chỉ báo bước đơn giản
     }
 
     private void setupImagesRecyclerView() {
@@ -245,7 +246,7 @@ public class ReportDetailActivity extends AppCompatActivity {
             tvNoImages.setVisibility(View.VISIBLE);
         }
 
-        // Update step view based on status
+        // Update step indicators based on status
         updateStepView();
 
         // Show rate button if report is done
@@ -264,59 +265,59 @@ public class ReportDetailActivity extends AppCompatActivity {
 
     private void updateStepView() {
         try {
-            if (stepView == null) {
-                System.out.println("StepView is null");
+            if (stepContainer == null || step1 == null || step2 == null || step3 == null || step4 == null) {
                 return;
             }
-            
+
             if (report == null || report.getStatus() == null) {
-                stepView.setVisibility(View.GONE);
+                stepContainer.setVisibility(View.GONE);
                 return;
             }
-            
-            int currentStep = 0;
+
+            int currentStepIndex;
             String status = report.getStatus();
-            
+
             switch (status) {
                 case "RECEIVED":
-                    currentStep = 0;
+                    currentStepIndex = 0;
                     break;
                 case "ASSIGNED":
-                    currentStep = 1;
+                    currentStepIndex = 1;
                     break;
                 case "PROCESSING":
-                    currentStep = 2;
+                    currentStepIndex = 2;
                     break;
                 case "DONE":
-                    currentStep = 3;
+                    currentStepIndex = 3;
                     break;
                 case "CANCELLED":
-                    // For cancelled, we don't show progress
-                    if (stepView != null) {
-                        stepView.setVisibility(View.GONE);
-                    }
+                    stepContainer.setVisibility(View.GONE);
                     return;
                 default:
-                    // Trạng thái không xác định, giữ ở bước đầu tiên
-                    currentStep = 0;
+                    currentStepIndex = 0;
                     break;
             }
-            
-            try {
-                stepView.go(currentStep, true);
-                stepView.done(true);
-            } catch (Exception e) {
-                System.out.println("Error calling StepView methods: " + e.getMessage());
+
+            TextView[] steps = new TextView[]{step1, step2, step3, step4};
+            for (int i = 0; i < steps.length; i++) {
+                int colorRes;
+                if (i < currentStepIndex) {
+                    colorRes = android.R.color.holo_green_dark; // đã hoàn thành
+                } else if (i == currentStepIndex) {
+                    colorRes = android.R.color.holo_blue_dark; // đang ở bước này
+                } else {
+                    colorRes = android.R.color.darker_gray; // chưa tới
+                }
+                try {
+                    steps[i].getBackground().setTint(ContextCompat.getColor(this, colorRes));
+                } catch (Exception e) {
+                    steps[i].setBackgroundColor(ContextCompat.getColor(this, colorRes));
+                }
             }
         } catch (Exception e) {
-            // Xử lý ngoại lệ nếu có
-            System.out.println("Error updating step view: " + e.getMessage());
-            if (stepView != null) {
-                try {
-                    stepView.setVisibility(View.GONE);
-                } catch (Exception ex) {
-                    System.out.println("Error hiding step view: " + ex.getMessage());
-                }
+            System.out.println("Error updating step indicators: " + e.getMessage());
+            if (stepContainer != null) {
+                stepContainer.setVisibility(View.GONE);
             }
         }
     }

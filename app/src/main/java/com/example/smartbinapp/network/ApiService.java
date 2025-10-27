@@ -50,6 +50,7 @@ public interface ApiService {
     @POST("api/accounts/login")
     Call<Account> login(@Body LoginRequest loginRequest);
 
+
     @GET("api/accounts/{id}")
     Call<Account> getUserById(@Path("id") String userId);
 
@@ -57,6 +58,12 @@ public interface ApiService {
     Call<Account> loginRaw1(@Body LoginRequest loginRequest);
     @POST("auth/login/google")
     Call<ApiMessage> loginWithGoogle(@Body Map<String, String> body);
+
+    // Raw response cho đăng nhập để tự parse JSON bọc {status, message, data}
+    @POST("api/accounts/login")
+    Call<ResponseBody> loginRaw(@Body LoginRequest loginRequest);
+
+
     @GET("api/bins")
     Call<List<Bin>> getAllBins();
 
@@ -108,20 +115,24 @@ public interface ApiService {
             @Query("radius") int radius
     );
 
-    // New endpoint for Hoi An nearby bins
-    @GET("api/app/bins/nearby/hoian")
-    Call<ResponseBody> getNearbyBinsHoiAn();
+    // New endpoint for Da Nang nearby bins
+    @GET("api/app/bins/nearby/danang")
+    Call<ResponseBody> getNearbyBinsDaNang();
 
     // API cho chức năng báo thùng đầy/tràn
-    @POST("api/reports/create")
-    Call<Report> createReport(@Body ReportRequest request);
+    @POST("api/app/reports")
+    Call<ResponseBody> createReport(@Body ReportRequest request);
 
+
+    // Trong file ApiService.java
+
+// ... các import và các lời gọi API khác
+
+    // Sửa dòng này
     @Multipart
-    @POST("api/reports/upload-image")
-    Call<ResponseBody> uploadReportImage(
-            @Part MultipartBody.Part image,
-            @Query("reportId") Integer reportId
-    );
+    @POST("reports/upload") // Hoặc endpoint upload của bạn
+    Call<ApiResponse<String>> uploadReportImage(@Part MultipartBody.Part file, @Part("description") RequestBody description);
+
 
     // API cho chức năng theo dõi xử lý phản ánh
     @GET("api/app/reports/user/{userId}")

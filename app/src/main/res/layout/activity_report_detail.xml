@@ -198,23 +198,89 @@
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
-                    <com.github.shuhart.stepview.StepView
-                        android:id="@+id/stepView"
+                    <!-- Thay StepView bằng chỉ báo bước thuần Android (không cần thư viện ngoài) -->
+                    <LinearLayout
+                        android:id="@+id/stepContainer"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:padding="8dp"
-                        app:sv_animationDuration="300"
-                        app:sv_doneCircleColor="@android:color/holo_green_dark"
-                        app:sv_doneStepLineColor="@android:color/holo_green_dark"
-                        app:sv_doneTextColor="@android:color/holo_green_dark"
-                        app:sv_nextStepLineColor="@android:color/darker_gray"
-                        app:sv_nextTextColor="@android:color/darker_gray"
-                        app:sv_selectedCircleColor="@android:color/holo_blue_dark"
-                        app:sv_selectedTextColor="@android:color/holo_blue_dark"
-                        app:sv_stepLineWidth="1dp"
-                        app:sv_stepPadding="4dp"
-                        app:sv_stepsNumber="4" />
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/step1"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/status_indicator"
+                            android:paddingLeft="12dp"
+                            android:paddingTop="6dp"
+                            android:paddingRight="12dp"
+                            android:paddingBottom="6dp"
+                            android:text="1"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginLeft="12dp"
+                            android:layout_marginRight="12dp"
+                            android:text=">" />
+
+                        <TextView
+                            android:id="@+id/step2"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/status_indicator"
+                            android:paddingLeft="12dp"
+                            android:paddingTop="6dp"
+                            android:paddingRight="12dp"
+                            android:paddingBottom="6dp"
+                            android:text="2"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginLeft="12dp"
+                            android:layout_marginRight="12dp"
+                            android:text=">" />
+
+                        <TextView
+                            android:id="@+id/step3"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/status_indicator"
+                            android:paddingLeft="12dp"
+                            android:paddingTop="6dp"
+                            android:paddingRight="12dp"
+                            android:paddingBottom="6dp"
+                            android:text="3"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginLeft="12dp"
+                            android:layout_marginRight="12dp"
+                            android:text=">" />
+
+                        <TextView
+                            android:id="@+id/step4"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/status_indicator"
+                            android:paddingLeft="12dp"
+                            android:paddingTop="6dp"
+                            android:paddingRight="12dp"
+                            android:paddingBottom="6dp"
+                            android:text="4"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>

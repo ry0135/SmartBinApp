@@ -5,7 +5,7 @@ import java.util.List;
 
 public class Report {
     private Integer reportId;
-    private Integer binId;
+    private Integer binID;
     private Integer accountId;
     private String reportType;
     private String description;
@@ -32,11 +32,11 @@ public class Report {
     }
 
     public Integer getBinId() {
-        return binId;
+        return binID;
     }
 
     public void setBinId(Integer binId) {
-        this.binId = binId;
+        this.binID = binId;
     }
 
     public Integer getAccountId() {
