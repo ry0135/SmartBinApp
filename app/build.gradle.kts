@@ -16,20 +16,24 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-
+        vectorDrawables.useSupportLibrary = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
+//            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL", "\"http://13.250.55.46:8080/SmartBinWeb/\"")
+
             buildConfigField("String", "BASE_URL_FALLBACK1", "\"http://localhost:8080/SmartBinWeb_war/\"")
-            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://127.0.0.1:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://13.250.55.46:8080/SmartBinWeb/\"")
         }
         release {
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
+//            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL", "\"http://13.250.55.46:8080/SmartBinWeb/\"")
+
             buildConfigField("String", "BASE_URL_FALLBACK1", "\"http://localhost:8080/SmartBinWeb_war/\"")
-            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://127.0.0.1:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://13.250.55.46:8080/SmartBinWeb/\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -67,28 +71,19 @@ dependencies {
     implementation("com.github.vietmap-company:vietmap-services-geojson-android:1.0.0")
     implementation("com.github.vietmap-company:vietmap-services-turf-android:1.0.2")
 
-    
+
     // Networking & JSON
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("com.google.code.gson:gson:2.10.1")
-    
+
     // Image Loading
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
-    
+
     // UI Components
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("com.github.shuhart:stepview:1.5.1")
 
-    implementation(libs.appcompat)
-    implementation(libs.material)
-    implementation(libs.activity)
-    implementation(libs.constraintlayout)
-    implementation(libs.play.services.location)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.ext.junit)
-    androidTestImplementation(libs.espresso.core)
-=======
 
     // Glide
     implementation("com.github.bumptech.glide:glide:4.15.1")
@@ -108,10 +103,24 @@ dependencies {
 
     implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
     implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-messaging")             // cho Push Notification
+    implementation("com.google.firebase:firebase-messaging")
+    implementation ("com.google.firebase:firebase-storage:21.0.0")
+    implementation ("com.google.firebase:firebase-analytics:22.0.0")
+    implementation ("com.github.bumptech.glide:glide:4.15.1")
+    annotationProcessor ("com.github.bumptech.glide:compiler:4.15.1")
 
+
+    //websocket
+    implementation("com.github.NaikSoftware:StompProtocolAndroid:1.6.6")
+    implementation("io.reactivex.rxjava2:rxjava:2.2.21")
+    implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
+    implementation("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation("com.google.code.gson:gson:2.10.1")
     // Unit Test
     testImplementation("junit:junit:4.13.2")
+
+
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
 
     // Android Test
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

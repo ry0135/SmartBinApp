@@ -1,4 +1,3 @@
-
 package com.example.smartbinapp;
 
 import android.animation.ObjectAnimator;
@@ -8,19 +7,25 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
-import android.widget.LinearLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.smartbinapp.model.Account;
 import com.example.smartbinapp.model.ApiMessage;
 import com.example.smartbinapp.model.LoginRequest;
-import com.example.smartbinapp.model.LoginResponse;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -35,68 +40,63 @@ import retrofit2.Response;
 public class LoginActivity extends AppCompatActivity {
 
     private ImageView ivLoginBin;
-    private LinearLayout headerSection, quickLoginSection;
+    private LinearLayout headerSection;
     private CardView loginCard;
     private TextInputEditText etUsername, etPassword;
     private TextInputLayout tilUsername, tilPassword;
 
     private ApiService apiService;
+    private static final int RC_GOOGLE_SIGN_IN = 100;
+    private GoogleSignInClient googleSignInClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Check session: nếu đã đăng nhập thì chuyển thẳng vào Home
+        // 🟢 Kiểm tra session cũ
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String savedUserId = prefs.getString("userId", null);
+
         if (savedUserId != null) {
-            int savedRole = prefs.getInt("role", 0);
-            Intent intent;
-            if (savedRole == 4) {
-                intent = new Intent(LoginActivity.this, HomeActivityCitizen.class);
-            } else {
-                intent = new Intent(LoginActivity.this, HomeActivity.class);
-            }
+
+            Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
             intent.putExtra("firstname", prefs.getString("userName", ""));
             startActivity(intent);
             finish();
             return;
         }
 
-        // Load layout
         setContentView(R.layout.activity_login);
 
-        // Init View
         initializeViews();
-
-        // Retrofit
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
-
-        // Điền lại username/email gần nhất
-        String lastUsername = prefs.getString("lastUsername", null);
-        if (lastUsername != null && etUsername != null) {
-            etUsername.setText(lastUsername);
-        }
-
-        // Animation
         startEntranceAnimations();
-
-        // Gán sự kiện click
         setupButtonListeners();
+
+        // 🟢 Cấu hình Google Sign-In
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+        googleSignInClient = GoogleSignIn.getClient(this, gso);
+
+        findViewById(R.id.btn_google_custom).setOnClickListener(v -> {
+            animateButtonClick(v);
+            Intent signInIntent = googleSignInClient.getSignInIntent();
+            startActivityForResult(signInIntent, RC_GOOGLE_SIGN_IN);
+        });
     }
 
     private void initializeViews() {
         ivLoginBin = findViewById(R.id.iv_login_bin);
         headerSection = findViewById(R.id.header_section);
         loginCard = findViewById(R.id.login_card);
-        quickLoginSection = findViewById(R.id.quick_login_section);
         etUsername = findViewById(R.id.et_username);
         etPassword = findViewById(R.id.et_password);
         tilUsername = findViewById(R.id.til_username);
         tilPassword = findViewById(R.id.til_password);
     }
 
-    // ================== ANIMATIONS ==================
     private void startEntranceAnimations() {
         ObjectAnimator headerAnimator = ObjectAnimator.ofFloat(headerSection, "alpha", 0f, 1f);
         headerAnimator.setDuration(1000);
@@ -108,18 +108,6 @@ public class LoginActivity extends AppCompatActivity {
         loginCardAnimator.setStartDelay(300);
         loginCardAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         loginCardAnimator.start();
-
-        ObjectAnimator quickLoginAnimator = ObjectAnimator.ofFloat(quickLoginSection, "alpha", 0f, 1f);
-        quickLoginAnimator.setDuration(800);
-        quickLoginAnimator.setStartDelay(600);
-        quickLoginAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
-        quickLoginAnimator.start();
-
-        ObjectAnimator rotationAnimator = ObjectAnimator.ofFloat(ivLoginBin, "rotationY", 0f, 360f);
-        rotationAnimator.setDuration(1500);
-        rotationAnimator.setStartDelay(500);
-        rotationAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
-        rotationAnimator.start();
     }
 
     private void animateButtonClick(View view) {
@@ -147,26 +135,28 @@ public class LoginActivity extends AppCompatActivity {
             performLogin();
         });
 
+
+
         findViewById(R.id.btn_register).setOnClickListener(v -> {
             animateButtonClick(v);
             startActivity(new Intent(LoginActivity.this, RegisterActivity.class));
         });
 
-        findViewById(R.id.tv_forgot_password).setOnClickListener(v ->
-                Toast.makeText(this, "Tính năng đang phát triển", Toast.LENGTH_SHORT).show()
-        );
+        findViewById(R.id.tv_forgot_password).setOnClickListener(v -> {
+            animateButtonClick(v);
+            startActivity(new Intent(LoginActivity.this, ForgotPasswordActivity.class));
+        });
     }
 
     private void performLogin() {
         String username = etUsername.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
-        // Clear previous errors
         tilUsername.setError(null);
         tilPassword.setError(null);
 
         if (username.isEmpty()) {
-            tilUsername.setError("Vui lòng nhập tên đăng nhập");
+            tilUsername.setError("Vui lòng nhập email");
             etUsername.requestFocus();
             return;
         }
@@ -176,76 +166,31 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString("lastUsername", username);
-        editor.apply();
-
         LoginRequest loginRequest = new LoginRequest(username, password);
 
-        // Sử dụng raw endpoint để parse JSON bọc
-        apiService.loginRaw(loginRequest).enqueue(new Callback<okhttp3.ResponseBody>() {
+        apiService.loginRaw1(loginRequest).enqueue(new Callback<Account>() {
             @Override
-            public void onResponse(Call<okhttp3.ResponseBody> call, Response<okhttp3.ResponseBody> response) {
-                // Log để debug
-                System.out.println("Response code: " + response.code());
-                System.out.println("Request data: email=" + username + ", password=" + password);
-                System.out.println("LoginRequest object: " + loginRequest.toString());
-                
+            public void onResponse(Call<Account> call, Response<Account> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    try {
-                        String responseBody = response.body().string();
-                        System.out.println("Raw response body: " + responseBody);
-                        parseLoginResponseRaw(responseBody);
-                    } catch (Exception e) {
-                        System.out.println("Error reading response body: " + e.getMessage());
-                        Toast.makeText(LoginActivity.this, "Lỗi đọc dữ liệu phản hồi", Toast.LENGTH_SHORT).show();
+                    Account acc = response.body();
+
+                    // ✅ Check null an toàn
+                    Integer accountId = acc.getAccountId();
+                    Integer role = acc.getRole();
+
+                    if (accountId == null) {
+                        Toast.makeText(LoginActivity.this, "Lỗi: Không lấy được ID tài khoản", Toast.LENGTH_SHORT).show();
+                        return;
                     }
-                    Account account = response.body();
 
-                    // Lưu session
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.putString("userId", String.valueOf(account.getAccountId()));
-                    editor.putString("userName", account.getFullName());
-                    editor.putString("email", account.getEmail());
-                    editor.putLong("lastLoginTime", System.currentTimeMillis());
-                    editor.apply();
+                    saveSession(accountId, acc.getFullName(), acc.getEmail(), role != null ? role : 0);
 
-                    // ✅ Lấy token FCM và gửi lên server
-                    FirebaseMessaging.getInstance().getToken()
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    String token = task.getResult();
-                                    Log.d("FCM", "FCM Token: " + token);
+                    Toast.makeText(LoginActivity.this, "Đăng nhập thành công", Toast.LENGTH_SHORT).show();
 
-                                    Map<String, String> body = new HashMap<>();
-                                    body.put("token", token);
-
-                                    apiService.updateFcmToken(account.getAccountId(), body)
-                                            .enqueue(new Callback<ApiMessage>() {
-                                                @Override
-                                                public void onResponse(Call<ApiMessage> call,
-                                                                       Response<ApiMessage> response) {
-                                                    if (response.isSuccessful()) {
-                                                        Log.d("FCM", "✅ Token saved to server");
-                                                    } else {
-                                                        Log.e("FCM", "❌ Error saving token: " + response.code());
-                                                    }
-                                                }
-
-                                                @Override
-                                                public void onFailure(Call<ApiMessage> call, Throwable t) {
-                                                    Log.e("FCM", "❌ Failed to save token: " + t.getMessage());
-                                                }
-                                            });
-                                }
-                            });
-
-                    // Chuyển sang HomeActivity
-                    Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
-                    intent.putExtra("firstname", account.getFullName());
-                    startActivity(intent);
+                    Intent nextIntent = (role != null && role == 4)
+                            ? new Intent(LoginActivity.this, HomeActivityCitizen.class)
+                            : new Intent(LoginActivity.this, HomeActivity.class);
+                    startActivity(nextIntent);
                     finish();
                 } else {
                     showLoginError(response.code());
@@ -253,69 +198,94 @@ public class LoginActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call<okhttp3.ResponseBody> call, Throwable t) {
-                System.out.println("Login error: " + t.getMessage());
+            public void onFailure(Call<Account> call, Throwable t) {
                 Toast.makeText(LoginActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void parseLoginResponseRaw(String responseString) {
-        try {
-            System.out.println("Parsing raw login response: " + responseString);
-            com.google.gson.Gson gson = new com.google.gson.Gson();
-            com.google.gson.JsonObject root = gson.fromJson(responseString, com.google.gson.JsonObject.class);
-            
-            if (root != null && root.has("data") && root.get("data").isJsonObject()) {
-                com.google.gson.JsonObject data = root.getAsJsonObject("data");
-                if (data.has("account") && data.get("account").isJsonObject()) {
-                    com.google.gson.JsonObject account = data.getAsJsonObject("account");
-                    
-                    // Extract account info
-                    int accountId = account.has("accountId") ? account.get("accountId").getAsInt() : 0;
-                    String fullName = account.has("fullName") ? account.get("fullName").getAsString() : "";
-                    String email = account.has("email") ? account.get("email").getAsString() : "";
-                    int role = account.has("role") ? account.get("role").getAsInt() : 0;
-                    
-                    if (accountId > 0) {
-                        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
-                        SharedPreferences.Editor editor = prefs.edit();
-                        editor.putString("userId", String.valueOf(accountId));
-                        editor.putString("userName", fullName);
-                        editor.putString("email", email);
-                        editor.putInt("role", role);
-                        editor.putLong("lastLoginTime", System.currentTimeMillis());
-                        editor.apply();
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
 
-                        Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(LoginActivity.this, role == 4 ? HomeActivityCitizen.class : HomeActivity.class);
-                        intent.putExtra("firstname", fullName);
-                        startActivity(intent);
-                        finish();
-                        return;
-                    }
+        if (requestCode == RC_GOOGLE_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            try {
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                if (account != null) {
+                    String idToken = account.getIdToken();
+                    String email = account.getEmail();
+                    String fullName = account.getDisplayName();
+
+                    Map<String, String> body = new HashMap<>();
+                    body.put("idToken", idToken);
+
+                    apiService.loginWithGoogle(body).enqueue(new Callback<ApiMessage>() {
+                        @Override
+                        public void onResponse(Call<ApiMessage> call, Response<ApiMessage> response) {
+                            if (response.isSuccessful() && response.body() != null) {
+                                ApiMessage msg = response.body();
+                                int accountId = msg.getUserId();
+                                int role = msg.getRole();
+
+                                saveSession(accountId, fullName, email, role);
+                                Toast.makeText(LoginActivity.this, msg.getMessage(), Toast.LENGTH_SHORT).show();
+
+                                startActivity(new Intent(LoginActivity.this, HomeActivityCitizen.class));
+                                finish();
+                            }
+                        }
+                        @Override
+                        public void onFailure(Call<ApiMessage> call, Throwable t) {
+                            Toast.makeText(LoginActivity.this, "Kết nối thất bại: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            } catch (ApiException e) {
+                Toast.makeText(this, "Google Sign-In thất bại", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    // ✅ Đã fix an toàn cho role, null check
+    private void saveSession(int accountId, String fullName, String email, int role) {
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString("userId", String.valueOf(accountId));
+        editor.putString("userName", fullName);
+        editor.putString("email", email);
+        editor.putInt("role", role);
+        editor.putLong("lastLoginTime", System.currentTimeMillis());
+        editor.apply();
+
+        // 🟢 Lưu FCM token
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                String token = task.getResult();
+                if (token != null && !token.isEmpty()) {
+                    Map<String, String> body = new HashMap<>();
+                    body.put("token", token);
+                    apiService.updateFcmToken(accountId, body).enqueue(new Callback<com.example.smartbinapp.model.ApiMessage>() {
+                        @Override
+                        public void onResponse(Call<com.example.smartbinapp.model.ApiMessage> call, Response<com.example.smartbinapp.model.ApiMessage> response) {
+                            Log.d("FCM", "✅ Token saved to server");
+                        }
+
+                        @Override
+                        public void onFailure(Call<com.example.smartbinapp.model.ApiMessage> call, Throwable t) {
+                            Log.e("FCM", "❌ Failed to save token: " + t.getMessage());
+                        }
+                    });
                 }
             }
-            
-            // Nếu không parse được, hiển thị lỗi
-            showLoginError(0);
-        } catch (Exception e) {
-            System.out.println("Error parsing raw login response: " + e.getMessage());
-            showLoginError(0);
-        }
+        });
     }
 
     private void showLoginError(int responseCode) {
         String errorMessage = "Lỗi đăng nhập";
-        if (responseCode == 401) {
-            errorMessage = "Sai tên đăng nhập hoặc mật khẩu";
-        } else if (responseCode == 500) {
-            errorMessage = "Lỗi máy chủ, vui lòng thử lại sau";
-        } else if (responseCode == 404) {
-            errorMessage = "Không tìm thấy tài khoản";
-        } else if (responseCode > 0) {
-            errorMessage = "Lỗi đăng nhập (Code: " + responseCode + ")";
-        }
+        if (responseCode == 401) errorMessage = "Sai tên đăng nhập hoặc mật khẩu";
+        else if (responseCode == 500) errorMessage = "Lỗi máy chủ, vui lòng thử lại sau";
+        else if (responseCode == 404) errorMessage = "Không tìm thấy tài khoản";
         Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
     }
 }

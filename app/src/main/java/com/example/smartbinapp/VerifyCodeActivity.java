@@ -24,7 +24,7 @@ public class VerifyCodeActivity extends AppCompatActivity {
     private TextInputEditText etVerifyCode;
     private Button btnVerify;
     private TextView tvResendCode;
-    private String email;
+    private String email, mode;
 
     private ApiService apiService;
 
@@ -36,7 +36,9 @@ public class VerifyCodeActivity extends AppCompatActivity {
         etVerifyCode = findViewById(R.id.et_verify_code);
         btnVerify = findViewById(R.id.btn_verify);
         tvResendCode = findViewById(R.id.tv_resend_code);
+
         email = getIntent().getStringExtra("EMAIL");
+        mode = getIntent().getStringExtra("MODE");
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
         btnVerify.setOnClickListener(v -> {
@@ -47,26 +49,31 @@ public class VerifyCodeActivity extends AppCompatActivity {
                 return;
             }
 
-            verifyCodeWithServer(email,inputCode);
+            verifyCodeWithServer(email, inputCode);
         });
 
         tvResendCode.setOnClickListener(v -> {
             Toast.makeText(this, "Đang gửi lại mã xác minh...", Toast.LENGTH_SHORT).show();
-            // TODO: gọi API resend code nếu backend có
+            // TODO: Gọi API resend nếu có
         });
     }
 
-    private void verifyCodeWithServer(String email,String code) {
+    private void verifyCodeWithServer(String email, String code) {
         Account request = new Account(email, code);
 
-
-        ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
         apiService.verifyCode(request).enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                 if (response.isSuccessful()) {
                     Toast.makeText(VerifyCodeActivity.this, "Xác thực thành công!", Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(VerifyCodeActivity.this, LoginActivity.class));
+
+                    if ("forgot".equals(mode)) {
+                        Intent intent = new Intent(VerifyCodeActivity.this, HomeActivity.class);
+                        intent.putExtra("EMAIL", email);
+                        startActivity(intent);
+                    } else {
+                        startActivity(new Intent(VerifyCodeActivity.this, LoginActivity.class));
+                    }
                     finish();
                 } else {
                     Toast.makeText(VerifyCodeActivity.this, "Mã không hợp lệ!", Toast.LENGTH_SHORT).show();

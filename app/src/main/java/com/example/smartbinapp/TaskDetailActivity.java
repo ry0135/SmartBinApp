@@ -11,6 +11,7 @@ import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
@@ -32,10 +33,13 @@ import com.example.smartbinapp.model.ApiMessage;
 import com.example.smartbinapp.model.Task;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
+import com.example.smartbinapp.service.TaskWebSocketService;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -54,7 +58,6 @@ import java.util.Locale;
 import java.util.Map;
 
 import okhttp3.MediaType;
-import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -120,24 +123,7 @@ public class TaskDetailActivity extends AppCompatActivity {
     private File tempPhotoFile;
     private Task currentTaskToComplete;
 
-    private final ActivityResultLauncher<Intent> cameraLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getResultCode() == RESULT_OK && currentTaskToComplete != null) {
-                    File imageFile = (tempPhotoFile != null && tempPhotoFile.exists())
-                            ? tempPhotoFile
-                            : (photoUri != null ? copyUriToCache(photoUri) : null);
-
-                    if (imageFile != null && imageFile.exists()) {
-                        uploadProof(currentTaskToComplete, imageFile);
-                    } else {
-                        Toast.makeText(this, "Không đọc được ảnh chụp", Toast.LENGTH_SHORT).show();
-                    }
-                } else {
-                    Toast.makeText(this, "Đã hủy chụp ảnh", Toast.LENGTH_SHORT).show();
-                }
-            });
-
-    // ====== LIFECYCLE ======
+    private TaskWebSocketService taskWebSocketService;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -146,6 +132,8 @@ public class TaskDetailActivity extends AppCompatActivity {
 
         mapView = findViewById(R.id.mapView);
         mapView.onCreate(savedInstanceState);
+
+        fusedClient = LocationServices.getFusedLocationProviderClient(this);
 
         ImageView btnBack = findViewById(R.id.btnBack);
         btnBack.setOnClickListener(v -> onBackPressed());
@@ -162,7 +150,6 @@ public class TaskDetailActivity extends AppCompatActivity {
         });
         fabStart.setOnClickListener(v -> startCollectingRoute());
 
-        // TTS
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 int res = textToSpeech.setLanguage(Locale.forLanguageTag("vi-VN"));
@@ -170,7 +157,6 @@ public class TaskDetailActivity extends AppCompatActivity {
             }
         });
 
-        // User / Batch
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String savedUserId = prefs.getString("userId", "0");
         workerId = (savedUserId != null) ? Integer.parseInt(savedUserId) : 0;
@@ -190,6 +176,7 @@ public class TaskDetailActivity extends AppCompatActivity {
                         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                                 == PackageManager.PERMISSION_GRANTED) {
                             enableLocationComponent();
+                            moveToCurrentLocation(); // ✅ tự động zoom tới vị trí hiện tại
                         } else {
                             ActivityCompat.requestPermissions(
                                     this,
@@ -202,22 +189,59 @@ public class TaskDetailActivity extends AppCompatActivity {
             );
         });
 
-        fusedClient = LocationServices.getFusedLocationProviderClient(this);
     }
 
-    // ====== LOAD TASKS & MARKERS ======
+    // ✅ HÀM LẤY VỊ TRÍ HIỆN TẠI
+    @SuppressWarnings({"MissingPermission"})
+    private void moveToCurrentLocation() {
+        fusedClient.getLastLocation()
+                .addOnSuccessListener(location -> {
+                    if (location != null && vietmapGL != null) {
+                        LatLng myLatLng = new LatLng(location.getLatitude(), location.getLongitude());
+                        vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(myLatLng, 15f));
+                        Log.d(TAG, "Moved to current location: " + myLatLng);
+                    } else {
+                        Toast.makeText(this, "Không lấy được vị trí hiện tại", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Lỗi lấy vị trí: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    @SuppressWarnings({"MissingPermission"})
+    private void enableLocationComponent() {
+        LocationComponent locationComponent = vietmapGL.getLocationComponent();
+        LocationComponentOptions customOptions = LocationComponentOptions.builder(this)
+                .foregroundDrawable(R.drawable.ic_my_location)
+                .backgroundDrawable(R.drawable.ic_my_location)
+                .build();
+
+        LocationComponentActivationOptions options =
+                LocationComponentActivationOptions.builder(this, vietmapGL.getStyle())
+                        .useDefaultLocationEngine(true)
+                        .locationComponentOptions(customOptions)
+                        .build();
+
+        locationComponent.activateLocationComponent(options);
+        locationComponent.setLocationComponentEnabled(true);
+        locationComponent.setCameraMode(CameraMode.TRACKING);
+        locationComponent.setRenderMode(RenderMode.NORMAL);
+    }
+
+    // ====== LOAD TASKS ======
     private void loadTasksFromApi() {
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
-        apiService.getTasksInBatch(workerId, batchId).enqueue(new retrofit2.Callback<List<Task>>() {
+        apiService.getTasksInBatch(workerId, batchId).enqueue(new Callback<List<Task>>() {
             @Override
-            public void onResponse(retrofit2.Call<List<Task>> call, retrofit2.Response<List<Task>> response) {
+            public void onResponse(Call<List<Task>> call, retrofit2.Response<List<Task>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     allTasks.clear();
                     allTasks.addAll(response.body());
 
                     for (Task task : allTasks) {
                         LatLng pos = new LatLng(task.getBin().getLatitude(), task.getBin().getLongitude());
-                        int iconRes = getStatusIcon(task.getStatus());
+                        int iconRes = getStatusIcon(task);
 
                         Marker marker = vietmapGL.addMarker(new MarkerOptions()
                                 .position(pos)
@@ -246,7 +270,7 @@ public class TaskDetailActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(retrofit2.Call<List<Task>> call, Throwable t) {
+            public void onFailure(Call<List<Task>> call, Throwable t) {
                 Toast.makeText(TaskDetailActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
@@ -427,39 +451,89 @@ public class TaskDetailActivity extends AppCompatActivity {
         TextView tvStatus = view.findViewById(R.id.tvBinStatus);
         Button btnComplete = view.findViewById(R.id.btnCompleteBin);
 
-        tvTitle.setText("Bin " + task.getBin().getBinCode() + " (" + task.getTaskType() + ")");
-        tvStatus.setText("Trạng thái: " + task.getStatus());
+        // 🗑️ Tiêu đề
+        tvTitle.setText("Thùng rác " + task.getBin().getBinCode());
+
+        // ⚙️ Dịch trạng thái sang tiếng Việt
+        String statusVi;
+        switch (task.getStatus().toUpperCase()) {
+            case "COMPLETED":
+                statusVi = "Đã hoàn thành";
+                break;
+            case "OPEN":
+                statusVi = "Đang chờ xử lý";
+                break;
+            case "CANCELLED":
+                statusVi = "Đã hủy";
+                break;
+            default:
+                statusVi = "Không xác định";
+        }
+
+        tvStatus.setText("Trạng thái: " + statusVi);
+
+        if (task.getStatus().equalsIgnoreCase("COMPLETED")) {
+            btnComplete.setVisibility(View.GONE); // Ẩn nút
+            tvStatus.setTextColor(Color.parseColor("#4CAF50"));
+            tvStatus.setText("Đã hoàn thành");
+        } else {
+            btnComplete.setVisibility(View.VISIBLE);
+            tvStatus.setTextColor(Color.parseColor("#FF9800"));
+            tvStatus.setText("Đang chờ xử lý");
+        }
 
         btnComplete.setOnClickListener(v -> {
             dialog.dismiss();
-            completeTaskWithProof(task);
+            Intent intent = new Intent(TaskDetailActivity.this, CompleteTaskActivity.class);
+            intent.putExtra("taskId", task.getTaskID());
+            intent.putExtra("binCode", task.getBin().getBinCode());
+            intent.putExtra("binLat", task.getBin().getLatitude());
+            intent.putExtra("binLng", task.getBin().getLongitude());
+            intent.putExtra("bin_adrress", task.getBin().getStreet() + "," + task.getBin().getProvinceName() + "," +  task.getBin().getProvinceName() );
+            completeTaskLauncher.launch(intent);
+
+            startActivity(intent);
         });
+
         dialog.show();
     }
 
-    // ====== CAMERA & UPLOAD ======
-    private void completeTaskWithProof(Task task) {
-        currentTaskToComplete = task;
 
-        // Tạo file tạm để lưu ảnh full-res
-        try {
-            tempPhotoFile = createImageFile();
-            photoUri = FileProvider.getUriForFile(this, FILE_PROVIDER_AUTH, tempPhotoFile);
-        } catch (IOException e) {
-            Toast.makeText(this, "Không tạo được file ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            return;
-        }
+    private final ActivityResultLauncher<Intent> completeTaskLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    String status = result.getData().getStringExtra("status");
+                    int taskId = result.getData().getIntExtra("taskId", -1);
 
-        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
-        cameraIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    if ("COMPLETED".equals(status)) {
+                        for (Task t : allTasks) {
+                            if (t.getTaskID() == taskId) {
+                                t.setStatus("COMPLETED");
+                                break;
+                            }
+                        }
+                        redrawMarkers(); // 🔄 Cập nhật màu xanh ngay
+                        Toast.makeText(this, "Nhiệm vụ #" + taskId + " đã hoàn thành!", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
 
-        if (cameraIntent.resolveActivity(getPackageManager()) != null) {
-            cameraLauncher.launch(cameraIntent);
-        } else {
-            Toast.makeText(this, "Thiết bị không có ứng dụng Camera", Toast.LENGTH_SHORT).show();
+    private void redrawMarkers() {
+        vietmapGL.clear();
+        markerTaskMap.clear();
+        for (Task task : allTasks) {
+            LatLng pos = new LatLng(task.getBin().getLatitude(), task.getBin().getLongitude());
+            int iconRes = getStatusIcon(task);
+            Marker marker = vietmapGL.addMarker(new MarkerOptions()
+                    .position(pos)
+                    .title("Bin " + task.getBin().getBinCode() + " (" + task.getTaskType() + ")")
+                    .snippet("Trạng thái: " + task.getStatus())
+                    .icon(IconFactory.getInstance(this).fromBitmap(getBitmapFromVectorDrawable(iconRes))));
+            markerTaskMap.put(marker, task);
         }
     }
+
+
 
     private File createImageFile() throws IOException {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
@@ -486,66 +560,33 @@ public class TaskDetailActivity extends AppCompatActivity {
         }
     }
 
-    private void uploadProof(Task task, File imageFile) {
-        // Kiểm tra quyền vị trí
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-            Toast.makeText(this, "Cần quyền vị trí để gửi báo cáo", Toast.LENGTH_SHORT).show();
-            return;
+
+    private int getStatusIcon(Task task) {
+        if (task == null) return R.drawable.ic_bin_red;
+
+        String status = task.getStatus() != null ? task.getStatus().toUpperCase() : "";
+        double fill = task.getBin().getCurrentFill(); // giả sử model Bin có currentFill (%)
+
+        if ("COMPLETED".equals(status)) {
+            return R.drawable.ic_bin_green;
         }
 
-        fusedClient.getLastLocation()
-                .addOnSuccessListener(TaskDetailActivity.this, location -> {
-                    if (location == null) {
-                        Toast.makeText(this, "Không lấy được GPS", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-
-                    double lat = location.getLatitude();
-                    double lng = location.getLongitude();
-
-                    RequestBody imgBody = RequestBody.create(imageFile, MediaType.parse("image/*"));
-                    MultipartBody.Part imagePart = MultipartBody.Part.createFormData("image", imageFile.getName(), imgBody);
-
-                    RequestBody latBody = RequestBody.create(String.valueOf(lat), MediaType.parse("text/plain"));
-                    RequestBody lngBody = RequestBody.create(String.valueOf(lng), MediaType.parse("text/plain"));
-                    RequestBody taskIdBody = RequestBody.create(String.valueOf(task.getTaskID()), MediaType.parse("text/plain"));
-
-                    ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
-                    Call<ApiMessage> call = apiService.completeTask(taskIdBody, latBody, lngBody, imagePart);
-
-                    call.enqueue(new Callback<ApiMessage>() {
-                        @Override
-                        public void onResponse(Call<ApiMessage> call, retrofit2.Response<ApiMessage> response) {
-                            if (response.isSuccessful() && response.body() != null) {
-                                Toast.makeText(TaskDetailActivity.this, response.body().getMessage(), Toast.LENGTH_SHORT).show();
-                            } else {
-                                Toast.makeText(TaskDetailActivity.this, "API lỗi: " + response.code(), Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                        @Override
-                        public void onFailure(Call<ApiMessage> call, Throwable t) {
-                            Toast.makeText(TaskDetailActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                })
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, "Lỗi GPS: " + e.getMessage(), Toast.LENGTH_SHORT).show());
-    }
-
-    // ====== HELPERS ======
-    private int getStatusIcon(String status) {
-        if (status == null) return R.drawable.ic_bin_red;
-        switch (status.toUpperCase()) {
-            case "COMPLETED": return R.drawable.ic_bin_green;
-            case "DOING": return R.drawable.ic_bin_yellow;
-            default: return R.drawable.ic_bin_red;
+        if (fill >= 80) {
+            return R.drawable.ic_bin_red;
         }
+
+        // 🟡 Đang xử lý
+        if (fill >= 40) {
+            return R.drawable.ic_bin_yellow;
+        }
+
+
+        // Mặc định (nếu có status lạ)
+        return R.drawable.ic_bin_red;
+
     }
 
-    private Bitmap getBitmapFromVectorDrawable(int drawableId) {
+        private Bitmap getBitmapFromVectorDrawable(int drawableId) {
         Drawable drawable = ContextCompat.getDrawable(this, drawableId);
         if (drawable == null) {
             Bitmap empty = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
@@ -563,25 +604,7 @@ public class TaskDetailActivity extends AppCompatActivity {
         return bitmap;
     }
 
-    @SuppressWarnings({"MissingPermission"})
-    private void enableLocationComponent() {
-        LocationComponent locationComponent = vietmapGL.getLocationComponent();
-        LocationComponentOptions customOptions = LocationComponentOptions.builder(this)
-                .foregroundDrawable(R.drawable.ic_my_location)
-                .backgroundDrawable(R.drawable.ic_my_location)
-                .build();
 
-        LocationComponentActivationOptions options =
-                LocationComponentActivationOptions.builder(this, vietmapGL.getStyle())
-                        .useDefaultLocationEngine(true)
-                        .locationComponentOptions(customOptions)
-                        .build();
-
-        locationComponent.activateLocationComponent(options);
-        locationComponent.setLocationComponentEnabled(true);
-        locationComponent.setCameraMode(CameraMode.TRACKING);
-        locationComponent.setRenderMode(RenderMode.NORMAL);
-    }
 
     // ====== PERMISSIONS & LIFECYCLE ======
     @Override
@@ -607,11 +630,17 @@ public class TaskDetailActivity extends AppCompatActivity {
     @Override protected void onDestroy() {
         stopNavigationUpdates();
         if (textToSpeech != null) { textToSpeech.stop(); textToSpeech.shutdown(); }
-        super.onDestroy();
+        super.onDestroy(); // Cần thêm super.onDestroy() để hoàn chỉnh
     }
-    @Override public void onLowMemory() { super.onLowMemory(); mapView.onLowMemory(); }
+
+    // Thêm onSaveInstanceState và onLowMemory để hoàn chỉnh MapView
     @Override protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
     }
+    @Override public void onLowMemory() {
+        super.onLowMemory();
+        mapView.onLowMemory();
+    }
+
 }

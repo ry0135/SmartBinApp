@@ -1,6 +1,8 @@
 package com.example.smartbinapp.adapter;
 
 import com.example.smartbinapp.R;
+
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -39,6 +41,31 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
 //        holder.tvCount.setText("Số task: " + item.getTaskCount());
         holder.tvPriority.setText("Độ ưu tiên: " + item.getMinPriority());
 
+        Log.d("TaskStatus", "Status from API: " + item.getStatus());
+
+        String status = item.getStatus();
+        String statusVi;
+
+        if (status == null) {
+            statusVi = "Không xác định";
+        } else {
+            switch (status.toUpperCase()) {
+                case "COMPLETED":
+                    statusVi = "Đã hoàn thành";
+                    break;
+                case "OPEN":
+                    statusVi = "Đang chờ xử lý";
+                    break;
+                case "CANCELLED":
+                    statusVi = "Đã hủy";
+                    break;
+                default:
+                    statusVi = "Không xác định";
+                    break;
+            }
+        }
+
+        holder.tvStatus.setText("Trạng thái: " + statusVi);
         holder.itemView.setOnClickListener(v -> listener.onItemClick(item));
     }
 
@@ -46,11 +73,12 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
     public int getItemCount() { return list.size(); }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView tvBatch, tvNote, tvPriority;
+        TextView tvBatch, tvNote, tvPriority,tvStatus;
         ViewHolder(View v) {
             super(v);
             tvNote = v.findViewById(R.id.tvNote);
             tvPriority = v.findViewById(R.id.tvPriority);
+            tvStatus = v.findViewById(R.id.tvStatus);
         }
     }
 }

@@ -263,33 +263,59 @@ public class RegisterActivity extends AppCompatActivity {
                                    String password, String confirmPassword, String addressDetail) {
         boolean isValid = true;
 
+        // 🧍‍♂️ Kiểm tra Họ và Tên
         if (TextUtils.isEmpty(fullName)) {
             tilFullName.setError("Vui lòng nhập họ và tên");
             isValid = false;
         }
+
+        // 📧 Kiểm tra Email
         if (TextUtils.isEmpty(email) || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             tilEmail.setError("Email không hợp lệ");
             isValid = false;
         }
-        if (TextUtils.isEmpty(phone) || phone.length() < 10) {
-            tilPhone.setError("Số điện thoại không hợp lệ");
+
+        // 📱 Kiểm tra Số điện thoại
+        if (TextUtils.isEmpty(phone) || !phone.matches("^0\\d{9,10}$")) {
+            tilPhone.setError("Số điện thoại không hợp lệ (phải 10–11 số và bắt đầu bằng 0)");
             isValid = false;
         }
-        if (TextUtils.isEmpty(password) || password.length() < 6) {
-            tilPassword.setError("Mật khẩu tối thiểu 6 ký tự");
+
+        // 🔐 Kiểm tra độ mạnh của Mật khẩu
+        if (TextUtils.isEmpty(password)) {
+            tilPassword.setError("Vui lòng nhập mật khẩu");
+            isValid = false;
+        } else if (password.length() < 8) {
+            tilPassword.setError("Mật khẩu phải có ít nhất 8 ký tự");
+            isValid = false;
+        } else if (!password.matches(".*[A-Z].*")) {
+            tilPassword.setError("Mật khẩu phải chứa ít nhất 1 chữ cái in hoa (A-Z)");
+            isValid = false;
+        } else if (!password.matches(".*[a-z].*")) {
+            tilPassword.setError("Mật khẩu phải chứa ít nhất 1 chữ cái thường (a-z)");
+            isValid = false;
+        } else if (!password.matches(".*\\d.*")) {
+            tilPassword.setError("Mật khẩu phải chứa ít nhất 1 chữ số (0-9)");
+            isValid = false;
+        } else if (!password.matches(".*[@#$%^&+=!._-].*")) {
+            tilPassword.setError("Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (@#$%^&+=!._-)");
             isValid = false;
         }
+
+        // ✅ Kiểm tra xác nhận mật khẩu
         if (TextUtils.isEmpty(confirmPassword) || !password.equals(confirmPassword)) {
             tilConfirmPassword.setError("Mật khẩu xác nhận không khớp");
             isValid = false;
         }
+
+        // 🏠 Kiểm tra địa chỉ chi tiết
         if (TextUtils.isEmpty(addressDetail)) {
             tilAddressDetail.setError("Vui lòng nhập địa chỉ chi tiết");
             isValid = false;
         }
+
         return isValid;
     }
-
     private void clearErrors() {
         tilFullName.setError(null);
         tilEmail.setError(null);

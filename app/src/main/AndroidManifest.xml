@@ -1,16 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- Quyền truy cập mạng & vị trí -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--  Quyền camera & truy cập ảnh -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!--  Khai báo phần cứng camera (không bắt buộc) -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <!-- 🖼 Quyền đọc ảnh (Android 13+ dùng READ_MEDIA_IMAGES) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
-
+    <!--  Quyền đọc/ghi cũ cho Android ≤ 12 -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application
         android:allowBackup="true"
@@ -25,10 +39,10 @@
         android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="31">
 
-
+        <!--  FileProvider cho camera (lưu ảnh tạm) -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.example.smartbinapp.provider"
+            android:authorities="${applicationId}.provider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
@@ -36,6 +50,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!--  Dịch vụ Firebase FCM -->
         <service
             android:name=".service.MyFirebaseMessagingService"
             android:exported="true"
@@ -45,7 +60,7 @@
             </intent-filter>
         </service>
 
-
+        <!--  Activity chính -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -55,38 +70,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
-        <activity
-            android:name=".LoginActivity"
-            android:exported="false" />
-            
-        <activity
-            android:name=".RegisterActivity"
-            android:exported="false" />
-        <activity
-            android:name=".VerifyCodeActivity"
-            android:exported="false" />
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
+        <!--  Các activity khác -->
+        <activity android:name=".LoginActivity" android:exported="false" />
+        <activity android:name=".RegisterActivity" android:exported="false" />
+        <activity android:name=".VerifyCodeActivity" android:exported="false" />
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".HomeActivity" android:exported="false" />
+        <activity android:name=".ProfileActivity" android:exported="false" />
+        <activity android:name=".EditProfileActivity" android:exported="false" />
+        <activity android:name=".TaskSummaryActivity" android:exported="false" />
+        <activity android:name=".BinDetailActivity" android:exported="false" />
+        <activity android:name=".TaskDetailActivity" android:exported="false" />
+        <activity android:name=".CompleteTaskActivity" android:exported="false" />
+        <activity android:name=".ForgotPasswordActivity" android:exported="false" />
 
-        <activity
-            android:name=".HomeActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ProfileActivity"
-            android:exported="false" />
-        <activity
-            android:name=".EditProfileActivity"
-            android:exported="false" />
-        <activity
-            android:name=".TaskSummaryActivity"
-            android:exported="false" />
-        <activity
-            android:name=".TaskDetailActivity"
-            android:exported="false" />
 
+        <!-- 🗺Các màn hình bổ sung -->
         <activity
             android:name=".HomeActivityCitizen"
             android:exported="false"
@@ -95,26 +95,24 @@
             android:name=".NearbyBinsActivity"
             android:exported="false"
             android:label="Thùng rác gần đây" />
-
         <activity
             android:name=".ReportBinActivity"
             android:exported="false"
             android:label="Báo cáo thùng rác" />
-
         <activity
             android:name=".ReportsListActivity"
             android:exported="false"
             android:label="Báo cáo của tôi" />
-
         <activity
             android:name=".ReportDetailActivity"
             android:exported="false"
             android:label="Chi tiết báo cáo" />
-
         <activity
             android:name=".FeedbackActivity"
             android:exported="false"
             android:label="Đánh giá dịch vụ" />
+
+        <!--  Google Maps API key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBE8J3XrpWDUEkEL8CMLAGC5KjOHB86tpE" />

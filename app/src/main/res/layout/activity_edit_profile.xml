@@ -12,16 +12,29 @@
         android:orientation="vertical"
         android:gravity="center_horizontal">
 
+        <!-- Nút back -->
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_margin="16dp"
+            android:background="@drawable/bg_circle_white"
+            android:padding="8dp"
+            android:src="@drawable/ic_arrow_back"
+            android:scaleType="centerInside"
+            android:contentDescription="Back"
+            android:layout_gravity="top|start" />
+
         <!-- Ảnh đại diện -->
         <ImageView
             android:id="@+id/ivAvatarEdit"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
             android:src="@drawable/ic_person"
-            android:background="@drawable/circle_background"
+            android:layout_marginTop="24dp"
             android:scaleType="centerCrop"
-            android:padding="8dp"
-            android:layout_marginTop="16dp" />
+            android:background="@drawable/circle_shape"
+            android:clipToOutline="true" />
 
         <TextView
             android:id="@+id/tvChangeAvatar"
@@ -47,21 +60,6 @@
                 android:inputType="textPersonName" />
         </com.google.android.material.textfield.TextInputLayout>
 
-<!--        &lt;!&ndash; Email &ndash;&gt;-->
-<!--        <com.google.android.material.textfield.TextInputLayout-->
-<!--            android:id="@+id/tilEmail"-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:hint="Email"-->
-<!--            android:layout_marginTop="12dp">-->
-
-<!--            <com.google.android.material.textfield.TextInputEditText-->
-<!--                android:id="@+id/etEmail"-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="wrap_content"-->
-<!--                android:inputType="textEmailAddress" />-->
-<!--        </com.google.android.material.textfield.TextInputLayout>-->
-
         <!-- Số điện thoại -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilPhone"
@@ -77,12 +75,12 @@
                 android:inputType="phone" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Địa chỉ -->
+        <!-- Địa chỉ chi tiết -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilAddress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Địa chỉ"
+            android:hint="Địa chỉ chi tiết (số nhà, đường, ...)"
             android:layout_marginTop="12dp">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -92,6 +90,40 @@
                 android:inputType="textPostalAddress" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Chọn Tỉnh / Thành phố -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tỉnh / Thành phố"
+            android:textStyle="bold"
+            android:textColor="#555"
+            android:layout_marginTop="16dp" />
+
+        <Spinner
+            android:id="@+id/spnProvince"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@android:drawable/editbox_background_normal"
+            android:padding="8dp" />
+
+        <!-- Chọn Phường / Xã -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Phường / Xã"
+            android:textStyle="bold"
+            android:textColor="#555"
+            android:layout_marginTop="12dp" />
+
+        <Spinner
+            android:id="@+id/spnWard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@android:drawable/editbox_background_normal"
+            android:padding="8dp" />
+
         <!-- Nút lưu -->
         <Button
             android:id="@+id/btnSaveProfile"
@@ -99,7 +131,7 @@
             android:layout_height="wrap_content"
             android:text="Lưu thay đổi"
             android:textAllCaps="false"
-            android:backgroundTint="@color/purple_500"
+            android:backgroundTint="@color/green"
             android:textColor="@android:color/white"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="24dp" />
