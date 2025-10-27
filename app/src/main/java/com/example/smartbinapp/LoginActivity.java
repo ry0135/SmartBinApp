@@ -5,7 +5,6 @@ import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.LinearLayout;
@@ -16,17 +15,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.smartbinapp.model.Account;
-import com.example.smartbinapp.model.ApiMessage;
 import com.example.smartbinapp.model.LoginRequest;
 import com.example.smartbinapp.model.LoginResponse;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
-import com.google.firebase.messaging.FirebaseMessaging;
-
-import java.util.HashMap;
-import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -46,7 +40,7 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Check session: nếu đã đăng nhập thì chuyển thẳng vào Home
+        // Check session: Nếu đã đăng nhập trước đó thì bỏ qua màn hình Login
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String savedUserId = prefs.getString("userId", null);
         if (savedUserId != null) {
@@ -63,22 +57,21 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        // Load layout
         setContentView(R.layout.activity_login);
 
-        // Init View
+        // Khởi tạo View
         initializeViews();
 
-        // Retrofit
+        // Khởi tạo Retrofit
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
-        // Điền lại username/email gần nhất
+        // Điền lại username/email gần nhất nếu có
         String lastUsername = prefs.getString("lastUsername", null);
         if (lastUsername != null && etUsername != null) {
             etUsername.setText(lastUsername);
         }
 
-        // Animation
+        // Animation khi mở màn hình
         startEntranceAnimations();
 
         // Gán sự kiện click
@@ -201,6 +194,7 @@ public class LoginActivity extends AppCompatActivity {
                         System.out.println("Error reading response body: " + e.getMessage());
                         Toast.makeText(LoginActivity.this, "Lỗi đọc dữ liệu phản hồi", Toast.LENGTH_SHORT).show();
                     }
+
                     Account account = response.body();
 
                     // Lưu session
@@ -247,6 +241,7 @@ public class LoginActivity extends AppCompatActivity {
                     intent.putExtra("firstname", account.getFullName());
                     startActivity(intent);
                     finish();
+
                 } else {
                     showLoginError(response.code());
                 }

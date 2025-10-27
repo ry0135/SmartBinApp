@@ -1,57 +1,47 @@
-package com.example.smartbinapp.network;
+package com.example.smartbinapp.network; // Giữ nguyên package của bạn
 
-import com.example.smartbinapp.model.Account;
+import com.google.gson.annotations.SerializedName;
 
-public class ApiResponse {
-    private boolean success;
+/**
+ * Một lớp Generic (tổng quát) để xử lý tất cả các phản hồi từ API.
+ * Nó có thể chứa bất kỳ loại dữ liệu nào (Account, Report, List<Bin>...)
+ * bằng cách sử dụng kiểu <T>.
+ */
+public class ApiResponse<T> {
+
+    // 1. Sửa 'success' (boolean) thành 'status' (String) để khớp với JSON
+    @SerializedName("status")
+    private String status;
+
+    @SerializedName("message")
     private String message;
-    private Account data;
 
-    // Constructors
-    public ApiResponse() {}
+    // 2. Sửa 'Account' thành kiểu Generic 'T' để có thể chứa bất kỳ đối tượng nào
+    @SerializedName("data")
+    private T data;
 
-    public ApiResponse(boolean success, String message) {
-        this.success = success;
+    // Getters and Setters
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
         this.message = message;
     }
 
-    public ApiResponse(boolean success, String message, Account data) {
-        this.success = success;
-        this.message = message;
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
         this.data = data;
-    }
-
-    // Getters và Setters
-    public boolean isSuccess() { 
-        return success; 
-    }
-    
-    public void setSuccess(boolean success) { 
-        this.success = success; 
-    }
-    
-    public String getMessage() { 
-        return message; 
-    }
-    
-    public void setMessage(String message) { 
-        this.message = message; 
-    }
-    
-    public Account getData() { 
-        return data; 
-    }
-    
-    public void setData(Account data) { 
-        this.data = data; 
-    }
-
-    @Override
-    public String toString() {
-        return "ApiResponse{" +
-                "success=" + success +
-                ", message='" + message + '\'' +
-                ", data=" + data +
-                '}';
     }
 }
