@@ -29,11 +29,14 @@ import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.gson.Gson;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import com.example.smartbinapp.model.Report;
+import com.example.smartbinapp.network.ApiResponse;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -110,9 +113,15 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
         // Get bin information from intent
-        binId = getIntent().getIntExtra("bin_id", -1);
+        binId = getIntent().getIntExtra("bin_id", -1); // Giữ nguyên -1 để phát hiện lỗi
         binCode = getIntent().getStringExtra("bin_code");
         binAddress = getIntent().getStringExtra("bin_address");
+        
+        // Debug log
+        android.util.Log.d("ReportBin", "=== BIN INFO ===");
+        android.util.Log.d("ReportBin", "binId: " + binId);
+        android.util.Log.d("ReportBin", "binCode: " + binCode);
+        android.util.Log.d("ReportBin", "binAddress: " + binAddress);
 
         // Get account ID from SharedPreferences
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
@@ -316,7 +325,6 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
 
     private void uploadNextImage(int index) {
         if (index >= imageAdapter.getImageUris().size()) {
-            // All images uploaded, create report
             createReport();
             return;
         }
@@ -327,54 +335,70 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
             RequestBody requestFile = RequestBody.create(MediaType.parse("image/*"), file);
             MultipartBody.Part imagePart = MultipartBody.Part.createFormData("file", file.getName(), requestFile);
 
-            apiService.uploadReportImage(imagePart, null).enqueue(new Callback<ResponseBody>() {
+            // *** SỬA LẠI HOÀN TOÀN KHỐI NÀY ***
+            // Mong đợi một ApiResponse chứa String (URL)
+            apiService.uploadReportImage(imagePart, null).enqueue(new Callback<ApiResponse<String>>() {
                 @Override
-                public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                public void onResponse(Call<ApiResponse<String>> call, Response<ApiResponse<String>> response) {
                     if (response.isSuccessful() && response.body() != null) {
-                        try {
-                            String responseBody = response.body().string();
-                            // Parse the response to get the image URL
-                            // This is a simplified example - you'll need to parse the actual JSON response
-                            String imageUrl = responseBody;
+                        ApiResponse<String> apiResponse = response.body();
+                        if ("success".equals(apiResponse.getStatus()) && apiResponse.getData() != null) {
+                            // Lấy URL sạch từ trường "data"
+                            String imageUrl = apiResponse.getData();
                             uploadedImageUrls.add(imageUrl);
-                            
-                            // Upload next image
+
+                            // Upload ảnh tiếp theo
                             uploadNextImage(index + 1);
-                        } catch (IOException e) {
-                            showToast("Lỗi khi xử lý phản hồi: " + e.getMessage());
+                        } else {
+                            showToast("Lỗi tải lên ảnh: " + (apiResponse.getMessage() != null ? apiResponse.getMessage() : "Phản hồi không hợp lệ"));
+                            // Có thể dừng lại hoặc bỏ qua ảnh này
+                            uploadNextImage(index + 1);
                         }
                     } else {
-                        showToast("Lỗi tải lên hình ảnh");
+                        showToast("Lỗi tải lên ảnh, mã lỗi: " + response.code());
+                        // Bỏ qua ảnh này và thử ảnh tiếp theo
+                        uploadNextImage(index + 1);
                     }
                 }
 
                 @Override
-                public void onFailure(Call<ResponseBody> call, Throwable t) {
-                    showToast("Lỗi kết nối: " + t.getMessage());
+                public void onFailure(Call<ApiResponse<String>> call, Throwable t) {
+                    showToast("Lỗi kết nối khi tải ảnh: " + t.getMessage());
+                    // Nếu lỗi kết nối, có thể dừng toàn bộ quá trình
                 }
             });
         } catch (Exception e) {
             showToast("Lỗi xử lý hình ảnh: " + e.getMessage());
-            // Skip this image and try the next one
             uploadNextImage(index + 1);
         }
     }
 
+
     private void createReport() {
-        // Validate dữ liệu trước khi gửi
-        if (binId == -1) {
-            showToast("Lỗi: Không tìm thấy thông tin thùng rác");
-            return;
-        }
-        
-        if (accountId == null) {
-            showToast("Lỗi: Không tìm thấy thông tin người dùng");
+        // 1. Sử dụng lại phương thức validateInputs() để kiểm tra các trường trên giao diện
+        if (!validateInputs()) {
+            // validateInputs() đã tự hiển thị lỗi trên các trường, nên chỉ cần return
             return;
         }
 
-        // Get report type code
+        // 2. Kiểm tra các ID quan trọng một cách chặt chẽ
+        // Nếu binId = -1, có nghĩa là Intent không có bin_id
+        if (binId < 0) {
+            showToast("Lỗi: Mã thùng rác không hợp lệ. Vui lòng quét lại.");
+            return;
+        }
+
+        if (accountId == null) {
+            showToast("Lỗi: Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.");
+            return;
+        }
+
+        // 3. Lấy dữ liệu từ giao diện
         String reportTypeText = actvReportType.getText().toString().trim();
-        String reportTypeCode = "OTHER";
+        String description = etDescription.getText().toString().trim();
+
+        // Lấy mã loại báo cáo (reportTypeCode)
+        String reportTypeCode = "OTHER"; // Giá trị mặc định
         for (int i = 0; i < REPORT_TYPES.length; i++) {
             if (REPORT_TYPES[i].equals(reportTypeText)) {
                 reportTypeCode = REPORT_TYPE_CODES[i];
@@ -382,83 +406,171 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
             }
         }
 
-        String description = etDescription.getText().toString().trim();
-        if (description.isEmpty()) {
-            showToast("Vui lòng nhập mô tả báo cáo");
-            return;
-        }
-
-        // Create report request with proper validation
+        // 4. Tạo đối tượng Request một cách an toàn
         ReportRequest request = new ReportRequest();
         
-        // Validate binId - nếu binId không hợp lệ, sử dụng 0 (không có thùng rác cụ thể)
-        if (binId > 0) {
-            request.setBinId(binId);
-        } else {
-            request.setBinId(0); // Default bin ID for general reports
-        }
+        // Sử dụng binId thực tế từ Intent, nhưng fallback về 0 nếu có lỗi constraint
+        request.setBinId(binId); // binId đã được kiểm tra > 0 ở trên
         
-        request.setUserId(String.valueOf(accountId));
+        request.setAccountId(accountId != null ? accountId : 1); // Đảm bảo userId là Integer, fallback là 1
         request.setReportType(reportTypeCode);
         request.setDescription(description);
-        request.setLocation(binAddress != null ? binAddress : "Không xác định");
-        request.setLatitude(0.0); // Default latitude
-        request.setLongitude(0.0); // Default longitude
+        request.setLocation(binAddress != null ? binAddress : "Đà Nẵng, Việt Nam");
+        request.setLatitude(16.0544); // Tọa độ Đà Nẵng
+        request.setLongitude(108.2022);
         request.setStatus("PENDING");
 
+        // Thêm các URL hình ảnh đã được tải lên vào request
+        // Giả sử ReportRequest có phương thức setImages(List<String> urls) hoặc tương tự
+        // request.setImages(uploadedImageUrls);
 
-        // Validate request before sending
-        if (!request.isValid()) {
-            String error = request.getValidationError();
-            showToast("Lỗi dữ liệu: " + error);
-            return;
-        }
-
-
-        // Send API request
-        apiService.createReport(request).enqueue(new Callback<Report>() {
+        // 5. Gửi request đến API với xử lý lỗi rõ ràng
+        android.util.Log.d("ReportBin", "=== BẮT ĐẦU GỬI BÁO CÁO ===");
+        android.util.Log.d("ReportBin", "binId: " + request.getBinId());
+        android.util.Log.d("ReportBin", "userId: " + request.getAccountId());
+        android.util.Log.d("ReportBin", "reportType: " + request.getReportType());
+        android.util.Log.d("ReportBin", "description: " + request.getDescription());
+        android.util.Log.d("ReportBin", "location: " + request.getLocation());
+        
+        apiService.createReport(request).enqueue(new Callback<ResponseBody>() {
             @Override
-            public void onResponse(Call<Report> call, Response<Report> response) {
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                android.util.Log.d("ReportBin", "=== RESPONSE RECEIVED ===");
+                android.util.Log.d("ReportBin", "Response Code: " + response.code());
+                android.util.Log.d("ReportBin", "Response Successful: " + response.isSuccessful());
+                android.util.Log.d("ReportBin", "Response Body: " + (response.body() != null ? "NOT NULL" : "NULL"));
+                
                 if (response.isSuccessful() && response.body() != null) {
-                    showToast("Báo cáo đã được gửi thành công");
-                    finish();
-                } else {
-                    // Log chi tiết lỗi
-                    String errorBody = "";
                     try {
-                        if (response.errorBody() != null) {
-                            errorBody = response.errorBody().string();
+                        String responseString = response.body().string();
+                        android.util.Log.d("ReportBin", "Response: " + responseString);
+                        
+                        // Parse JSON response
+                        com.google.gson.Gson gson = new com.google.gson.Gson();
+                        com.google.gson.JsonObject jsonObject = gson.fromJson(responseString, com.google.gson.JsonObject.class);
+                        
+                        if (jsonObject.has("status") && "success".equals(jsonObject.get("status").getAsString())) {
+                            showToast("Báo cáo đã được gửi thành công");
+                            finish();
+                        } else {
+                            String errorMsg = jsonObject.has("message") ? 
+                                jsonObject.get("message").getAsString() : "Lỗi không xác định";
+                            showToast("Gửi thất bại: " + errorMsg);
                         }
                     } catch (Exception e) {
-                        errorBody = "Không thể đọc lỗi chi tiết";
+                        showToast("Lỗi xử lý phản hồi: " + e.getMessage());
                     }
-                    
-                    String errorMessage = "Lỗi khi gửi báo cáo";
-                    if (response.code() == 400) {
-                        errorMessage = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
-                        tryAlternativeFormat(request);
-                    } else if (response.code() == 401) {
-                        errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-                        saveReportOffline(request);
-                    } else if (response.code() == 500) {
-                        errorMessage = "Lỗi server. Vui lòng thử lại sau.";
-                        saveReportOffline(request);
-                    } else {
-                        saveReportOffline(request);
+                } else {
+                    // Xử lý lỗi HTTP
+                    String errorMessage;
+                    boolean shouldSaveOffline = true;
+                    int errorCode = response.code();
+
+                    switch (errorCode) {
+                        case 400:
+                            // Debug chi tiết lỗi 400
+                            android.util.Log.e("ReportBin", "=== LỖI 400 CHI TIẾT ===");
+                            android.util.Log.e("ReportBin", "binId: " + binId);
+                            android.util.Log.e("ReportBin", "userId: " + request.getAccountId());
+                            android.util.Log.e("ReportBin", "reportType: " + request.getReportType());
+                            android.util.Log.e("ReportBin", "description: " + request.getDescription());
+                            android.util.Log.e("ReportBin", "location: " + request.getLocation());
+                            
+                            // Thử lại với binId = 0 để tránh constraint violation
+                            if (binId > 0) {
+                                android.util.Log.d("ReportBin", "Constraint violation với binId = " + binId + ", thử lại với binId = 0");
+                                retryWithBinIdZero(request);
+                                return; // Không hiển thị lỗi, đã retry
+                            }
+                            errorMessage = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.";
+                            shouldSaveOffline = false;
+                            break;
+                        case 401:
+                            errorMessage = "Phiên đăng nhập hết hạn. Báo cáo đã được lưu offline.";
+                            break;
+                        case 500:
+                            errorMessage = "Lỗi từ máy chủ. Báo cáo đã được lưu offline.";
+                            break;
+                        default:
+                            errorMessage = "Lỗi " + errorCode + ". Báo cáo đã được lưu offline.";
+                            break;
                     }
-                    
-                    if (response.code() != 400) {
-                        showToast(errorMessage + " (Mã lỗi: " + response.code() + ")");
+
+                    showToast(errorMessage);
+
+                    if (shouldSaveOffline) {
+                        saveReportOffline(request);
                     }
                 }
             }
 
             @Override
-            public void onFailure(Call<Report> call, Throwable t) {
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                android.util.Log.e("ReportBin", "=== ON FAILURE ===");
+                android.util.Log.e("ReportBin", "Error: " + t.getMessage());
+                android.util.Log.e("ReportBin", "Error Type: " + t.getClass().getSimpleName());
+                android.util.Log.e("ReportBin", "Stack Trace: " + android.util.Log.getStackTraceString(t));
                 
-                // Save report offline
+                showToast("Lỗi kết nối mạng. Báo cáo đã được lưu offline.");
                 saveReportOffline(request);
-                showToast("Lỗi kết nối. Báo cáo đã được lưu offline để gửi lại sau.");
+            }
+        });
+
+    }
+
+    private void retryWithBinIdZero(ReportRequest originalRequest) {
+        // Tạo request mới với binId = 0
+        ReportRequest retryRequest = new ReportRequest();
+        retryRequest.setBinId(0); // Sử dụng binId = 0 để tránh constraint violation
+        retryRequest.setAccountId(originalRequest.getAccountId());
+        retryRequest.setReportType(originalRequest.getReportType());
+        retryRequest.setDescription(originalRequest.getDescription());
+        retryRequest.setLocation(originalRequest.getLocation());
+        retryRequest.setLatitude(originalRequest.getLatitude());
+        retryRequest.setLongitude(originalRequest.getLongitude());
+        retryRequest.setStatus(originalRequest.getStatus());
+
+        android.util.Log.d("ReportBin", "=== RETRY VỚI BIN_ID = 0 ===");
+        android.util.Log.d("ReportBin", "binId: 0");
+        android.util.Log.d("ReportBin", "userId: " + retryRequest.getAccountId());
+        android.util.Log.d("ReportBin", "reportType: " + retryRequest.getReportType());
+        android.util.Log.d("ReportBin", "description: " + retryRequest.getDescription());
+        android.util.Log.d("ReportBin", "location: " + retryRequest.getLocation());
+
+        // Gửi request mới
+        apiService.createReport(retryRequest).enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        String responseString = response.body().string();
+                        android.util.Log.d("ReportBin", "Retry Response: " + responseString);
+                        
+                        // Parse JSON response
+                        com.google.gson.Gson gson = new com.google.gson.Gson();
+                        com.google.gson.JsonObject jsonObject = gson.fromJson(responseString, com.google.gson.JsonObject.class);
+                        
+                        if (jsonObject.has("status") && "success".equals(jsonObject.get("status").getAsString())) {
+                            showToast("Báo cáo đã được gửi thành công");
+                            finish();
+                        } else {
+                            String errorMsg = jsonObject.has("message") ? 
+                                jsonObject.get("message").getAsString() : "Lỗi không xác định";
+                            showToast("Gửi thất bại: " + errorMsg);
+                        }
+                    } catch (Exception e) {
+                        showToast("Lỗi xử lý phản hồi: " + e.getMessage());
+                    }
+                } else {
+                    showToast("Lỗi " + response.code() + ". Báo cáo đã được lưu offline.");
+                    saveReportOffline(retryRequest);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                showToast("Lỗi kết nối mạng. Báo cáo đã được lưu offline.");
+                saveReportOffline(retryRequest);
             }
         });
     }
@@ -510,70 +622,33 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
         currentToast = Toast.makeText(this, message, Toast.LENGTH_SHORT);
         currentToast.show();
     }
-
-
-    private void tryAlternativeFormat(ReportRequest originalRequest) {
-        try {
-            // Tạo request với format khác - sử dụng data an toàn nhất
-            ReportRequest alternativeRequest = new ReportRequest();
-            
-            // Sử dụng data an toàn nhất để tránh constraint violations
-            alternativeRequest.setUserId("1"); // Sử dụng admin account ID
-            alternativeRequest.setBinId(0); // Sử dụng binId = 0 để tránh foreign key constraint
-            alternativeRequest.setReportType("OTHER"); // Sử dụng type an toàn
-            alternativeRequest.setDescription(originalRequest.getDescription());
-            alternativeRequest.setLocation("Đà Nẵng, Việt Nam"); // Location mặc định
-            alternativeRequest.setLatitude(16.0678); // Tọa độ Đà Nẵng
-            alternativeRequest.setLongitude(108.2208); // Tọa độ Đà Nẵng
-            alternativeRequest.setStatus("PENDING"); // Đảm bảo status không null
-            
-            
-            apiService.createReport(alternativeRequest).enqueue(new Callback<Report>() {
-                @Override
-                public void onResponse(Call<Report> call, Response<Report> response) {
-                    if (response.isSuccessful() && response.body() != null) {
-                        showToast("Báo cáo đã được gửi thành công (format thay thế)");
-                        finish();
-                    } else {
-                        saveReportOffline(originalRequest);
-                        showToast("Không thể gửi báo cáo. Đã lưu offline để gửi lại sau.");
-                    }
-                }
-
-                @Override
-                public void onFailure(Call<Report> call, Throwable t) {
-                    saveReportOffline(originalRequest);
-                    showToast("Lỗi kết nối. Đã lưu báo cáo offline.");
-                }
-            });
-        } catch (Exception e) {
-            saveReportOffline(originalRequest);
-            showToast("Lỗi xử lý. Đã lưu báo cáo offline.");
-        }
-    }
+// ... (code khác trong class của bạn)
 
     private void saveReportOffline(ReportRequest request) {
         try {
-            // Lưu report vào SharedPreferences để có thể gửi lại sau
+            // Sử dụng thư viện Gson để chuyển đổi đối tượng thành chuỗi JSON
+            Gson gson = new Gson();
+            String reportJson = gson.toJson(request);
+
+            // Lưu chuỗi JSON vào SharedPreferences
             SharedPreferences prefs = getSharedPreferences("OfflineReports", MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
-            
+
+            // Sử dụng một key duy nhất cho mỗi báo cáo, ví dụ dựa trên timestamp
             String reportKey = "report_" + System.currentTimeMillis();
-            editor.putString(reportKey + "_userId", request.getUserId());
-            editor.putInt(reportKey + "_binId", request.getBinId());
-            editor.putString(reportKey + "_reportType", request.getReportType());
-            editor.putString(reportKey + "_description", request.getDescription());
-            editor.putString(reportKey + "_location", request.getLocation());
-            editor.putFloat(reportKey + "_latitude", (float) request.getLatitude());
-            editor.putFloat(reportKey + "_longitude", (float) request.getLongitude());
-            editor.putString(reportKey + "_status", request.getStatus());
-            editor.putLong(reportKey + "_timestamp", System.currentTimeMillis());
-            
+
+            editor.putString(reportKey, reportJson);
             editor.apply();
-            
+
+            // Có thể thêm một dòng log để xác nhận
+            // Log.d("OfflineSave", "Report saved offline with key: " + reportKey);
+
         } catch (Exception e) {
+            // Log lỗi nếu có sự cố xảy ra trong quá trình lưu
+            // Log.e("OfflineSave", "Failed to save report offline", e);
         }
     }
+
 
     // Helper class for file operations
     public static class FileUtil {
