@@ -97,7 +97,7 @@ public class Bin {
     }
 
     // Constructor for fallback data
-    public Bin(int binId, String binCode, double latitude, double longitude, String status, double currentFill, String street) {
+    public Bin(int binId, String binCode, double latitude, double longitude, int status, double currentFill, String street) {
         this.binId = binId;
         this.binCode = binCode;
         this.latitude = latitude;
@@ -112,10 +112,6 @@ public class Bin {
         this.provinceName = "Unknown";
     }
 
-    // Getters & Setters
-    public int getBinId() { return binId; }
-    public void setBinId(int binId) { this.binId = binId; }
-
 
     public void setCapacity(double capacity) {
         this.capacity = capacity;
@@ -127,14 +123,6 @@ public class Bin {
 
     public void setCurrentFill(double currentFill) {
         this.currentFill = currentFill;
-    }
-
-    public int getStatus() { // Sửa thành int
-        return status;
-    }
-
-    public void setStatus(int status) { // Sửa thành int
-        this.status = status;
     }
 
     public Date getLastUpdated() {
@@ -150,8 +138,8 @@ public class Bin {
         return wardName;
     }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public int getStatus() { return status; }
+    public void setStatus(int status) { this.status = status; }
 
 
     public void setWardName(String wardName) {
