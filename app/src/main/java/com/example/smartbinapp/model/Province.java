@@ -1,6 +1,9 @@
 package com.example.smartbinapp.model;
 
+import com.google.gson.annotations.SerializedName;
+
 public class Province {
+    @SerializedName("provinceId")
     private int provinceId;
 
     private String provinceName;

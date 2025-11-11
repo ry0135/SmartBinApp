@@ -3,9 +3,12 @@ package com.example.smartbinapp;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -36,7 +39,8 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
     private RecyclerView rvReports;
     private TextView tvEmpty;
     private ProgressBar progressBar;
-
+    private LinearLayout btnHome, btnReport, btnShowTask, btnAccount;
+    private ImageView ivNotification;
     private ApiService apiService;
     private ReportsAdapter adapter;
     private List<Report> allReports = new ArrayList<>();
@@ -61,7 +65,7 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
 
         // Initialize UI components
         initializeViews();
-        setupToolbar();
+        setupBottomNavigation();
         setupTabLayout();
         setupSwipeRefresh();
         setupRecyclerView();
@@ -72,25 +76,46 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
 
     private void initializeViews() {
         toolbar = findViewById(R.id.toolbar);
+        ivNotification = findViewById(R.id.iv_notification);
         tabLayout = findViewById(R.id.tabLayout);
         swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
         rvReports = findViewById(R.id.rvReports);
         tvEmpty = findViewById(R.id.tvEmpty);
         progressBar = findViewById(R.id.progressBar);
+
+        btnHome = findViewById(R.id.btn_home);
+        btnReport = findViewById(R.id.btn_report);
+        btnShowTask = findViewById(R.id.btn_showtask);
+        btnAccount = findViewById(R.id.btn_account);
+
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+        int savedRole = prefs.getInt("role", 0); // Mặc định là 0 nếu chưa có
+
+        if (savedRole == 4) {
+            btnShowTask.setVisibility(View.GONE);
+            Log.d("RoleCheck", "Đã ẩn nút Nhiệm vụ vì người dùng là citizen");
+        }
     }
 
-    private void setupToolbar() {
-        setSupportActionBar(toolbar);
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setDisplayShowHomeEnabled(true);
-        }
-        
-        // Set up home button click listener
-        Button btnBackToHome = findViewById(R.id.btnBackToHome);
-        btnBackToHome.setOnClickListener(v -> {
-            Intent intent = new Intent(ReportsListActivity.this, HomeActivity.class);
+    private void setupBottomNavigation() {
+
+        btnHome.setOnClickListener(v -> {
+            Intent intent = new Intent(this, HomeActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(intent);
+            finish();
+        });
+
+        btnReport.setOnClickListener(v -> Toast.makeText(this, "Đang ở trang Báo cáo", Toast.LENGTH_SHORT).show());
+
+        btnShowTask.setOnClickListener(v -> {
+            Intent intent = new Intent(this, TaskSummaryActivity.class);
+            startActivity(intent);
+            finish();
+        });
+
+        btnAccount.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ProfileActivity.class);
             startActivity(intent);
             finish();
         });
@@ -295,6 +320,8 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
         adapter.setReports(filteredReports);
         showEmpty(filteredReports.isEmpty());
     }
+
+
 
     private void showLoading(boolean show) {
         progressBar.setVisibility(show ? View.VISIBLE : View.GONE);

@@ -1,5 +1,7 @@
 package com.example.smartbinapp.model;
 
+import java.util.List;
+
 public class ReportRequest {
     // 1. Đồng bộ kiểu dữ liệu với server: private Integer userId;
     private Integer accountId;
@@ -10,6 +12,8 @@ public class ReportRequest {
     private double latitude;
     private double longitude;
     private String status;
+
+    private List<String> images;
 
     // Constructors
     public ReportRequest() {}
@@ -39,6 +43,14 @@ public class ReportRequest {
 
     // 2. Sửa lại setter để nhận đúng kiểu Integer
 
+
+    public List<String> getImages() {
+        return images;
+    }
+
+    public void setImages(List<String> images) {
+        this.images = images;
+    }
 
     public int getBinId() {
         return binId;

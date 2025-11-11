@@ -19,7 +19,7 @@ public class BinWebSocketService {
 
     private static final String TAG = "BinWebSocket";
 //    private static final String WS_URL = "ws://10.0.2.2:8080/SmartBinWeb_war/ws-bin/websocket";
-    private static final String WS_URL = "ws://13.250.55.46:8080/SmartBinWeb/ws-bin";
+    private static final String WS_URL = "ws://54.254.193.147:8080/SmartBinWeb/ws-bin";
 
     private StompClient stompClient;
     private Gson gson = new GsonBuilder()

@@ -84,6 +84,10 @@
         <activity android:name=".TaskDetailActivity" android:exported="false" />
         <activity android:name=".CompleteTaskActivity" android:exported="false" />
         <activity android:name=".ForgotPasswordActivity" android:exported="false" />
+        <activity android:name=".ResetPasswordActivity" android:exported="false" />
+        <activity android:name=".NotificationListActivity" android:exported="false" />
+
+
 
 
         <!-- 🗺Các màn hình bổ sung -->

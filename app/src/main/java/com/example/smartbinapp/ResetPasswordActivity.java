@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import okhttp3.ResponseBody;
 import retrofit2.Call;
@@ -20,6 +21,7 @@ import retrofit2.Response;
 public class ResetPasswordActivity extends AppCompatActivity {
 
     private TextInputEditText etNewPassword, etConfirmPassword;
+    private TextInputLayout tilNewPassword, tilConfirmPassword;
     private Button btnReset;
     private ApiService apiService;
     private String email;
@@ -29,27 +31,27 @@ public class ResetPasswordActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_reset_password);
 
+        // 🧩 Ánh xạ view
         etNewPassword = findViewById(R.id.et_new_password);
         etConfirmPassword = findViewById(R.id.et_confirm_password);
+        tilNewPassword = findViewById(R.id.til_new_password);
+        tilConfirmPassword = findViewById(R.id.til_confirm_password);
         btnReset = findViewById(R.id.btn_reset_password);
 
         email = getIntent().getStringExtra("EMAIL");
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
         btnReset.setOnClickListener(v -> {
+            clearErrors();
             String newPass = etNewPassword.getText().toString().trim();
             String confirm = etConfirmPassword.getText().toString().trim();
 
-            if (TextUtils.isEmpty(newPass) || TextUtils.isEmpty(confirm)) {
-                Toast.makeText(this, "Vui lòng nhập đầy đủ thông tin!", Toast.LENGTH_SHORT).show();
+            // ✅ Kiểm tra đầu vào
+            if (!validatePassword(newPass, confirm)) {
                 return;
             }
 
-            if (!newPass.equals(confirm)) {
-                Toast.makeText(this, "Mật khẩu xác nhận không khớp!", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
+            // ✅ Gọi API đặt lại mật khẩu
             apiService.resetPassword(email, newPass).enqueue(new Callback<ResponseBody>() {
                 @Override
                 public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
@@ -58,7 +60,7 @@ public class ResetPasswordActivity extends AppCompatActivity {
                         startActivity(new Intent(ResetPasswordActivity.this, LoginActivity.class));
                         finish();
                     } else {
-                        Toast.makeText(ResetPasswordActivity.this, "Thất bại!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(ResetPasswordActivity.this, "Thất bại! Vui lòng thử lại.", Toast.LENGTH_SHORT).show();
                     }
                 }
 
@@ -68,5 +70,50 @@ public class ResetPasswordActivity extends AppCompatActivity {
                 }
             });
         });
+    }
+
+    /**
+     * 🧩 Validate độ mạnh mật khẩu và xác nhận khớp
+     */
+    private boolean validatePassword(String password, String confirmPassword) {
+        boolean isValid = true;
+
+        if (TextUtils.isEmpty(password)) {
+            tilNewPassword.setError("Vui lòng nhập mật khẩu mới");
+            isValid = false;
+        } else if (password.length() < 8) {
+            tilNewPassword.setError("Mật khẩu phải có ít nhất 8 ký tự");
+            isValid = false;
+        } else if (!password.matches(".*[A-Z].*")) {
+            tilNewPassword.setError("Mật khẩu phải chứa ít nhất 1 chữ cái in hoa (A-Z)");
+            isValid = false;
+        } else if (!password.matches(".*[a-z].*")) {
+            tilNewPassword.setError("Mật khẩu phải chứa ít nhất 1 chữ cái thường (a-z)");
+            isValid = false;
+        } else if (!password.matches(".*\\d.*")) {
+            tilNewPassword.setError("Mật khẩu phải chứa ít nhất 1 chữ số (0-9)");
+            isValid = false;
+        } else if (!password.matches(".*[@#$%^&+=!._-].*")) {
+            tilNewPassword.setError("Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (@#$%^&+=!._-)");
+            isValid = false;
+        }
+
+        if (TextUtils.isEmpty(confirmPassword)) {
+            tilConfirmPassword.setError("Vui lòng nhập xác nhận mật khẩu");
+            isValid = false;
+        } else if (!password.equals(confirmPassword)) {
+            tilConfirmPassword.setError("Mật khẩu xác nhận không khớp");
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    /**
+     * 🧽 Xóa lỗi trước khi nhập lại
+     */
+    private void clearErrors() {
+        tilNewPassword.setError(null);
+        tilConfirmPassword.setError(null);
     }
 }

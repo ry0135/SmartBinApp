@@ -8,12 +8,14 @@ import com.example.smartbinapp.model.Bin;
 import com.example.smartbinapp.model.Feedback;
 import com.example.smartbinapp.model.FeedbackStats;
 import com.example.smartbinapp.model.LoginRequest;
+import com.example.smartbinapp.model.Notification;
 import com.example.smartbinapp.model.Province;
 import com.example.smartbinapp.model.Report;
 import com.example.smartbinapp.model.ReportRequest;
 import com.example.smartbinapp.model.Task;
 import com.example.smartbinapp.model.TaskSummary;
 import com.example.smartbinapp.model.Ward;
+import com.google.gson.JsonObject;
 
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
@@ -102,10 +104,7 @@ public interface ApiService {
     );
     // API cho chức năng xem thùng rác gần nhất
     @GET("api/bins/nearby")
-    Call<List<Bin>> getNearbyBins(
-            @Query("latitude") double latitude,
-            @Query("longitude") double longitude
-    );
+    Call<List<Bin>> getNearbyBins(@Query("latitude") double lat, @Query("longitude") double lng);
 
     // Raw response for nearby bins to handle server format
     @GET("api/bins/nearby")
@@ -174,6 +173,19 @@ public interface ApiService {
 
     @POST("api/accounts/reset-password")
     Call<ResponseBody> resetPassword(@Query("email") String email, @Query("newPassword") String newPassword);
+
+    @PUT("api/tasks/{id}/status")
+    Call<Void> updateTaskStatus(@Path("id") String batchId, @Query("status") String status);
+
+
+    @GET("api/notifications/received/{receiverId}")
+    Call<List<Notification>> getReceivedNotifications(@Path("receiverId") String receiverId);
+
+    @PUT("api/notifications/{id}/read")
+    Call<Void> markNotificationAsRead(@Path("id") int id);
+
+    @GET("api/notifications/unread")
+    Call<List<Notification>> getUnreadNotifications(@Query("userId") String userId);
 
 
 }

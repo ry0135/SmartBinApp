@@ -158,35 +158,51 @@ public class EditProfileActivity extends AppCompatActivity {
                             android.R.layout.simple_spinner_dropdown_item, wardNames);
                     spnWard.setAdapter(wardAdapter);
 
-                    // 🟢 Nếu có currentWardId, set nó trước
-                    if (currentWardId != null && currentWardId > 0) {
+                    // 🟢 Trường hợp không có currentWardId (đăng ký mới hoặc chưa chọn)
+                    if (currentWardId == null || currentWardId <= 0) {
+                        if (!wardList.isEmpty()) {
+                            selectedWardId = wardList.get(0).getWardId();
+                            spnWard.setSelection(0);
+                            Log.d("DEBUG", "🟢 Mặc định chọn ward đầu tiên = " + selectedWardId);
+                        }
+                    } else {
+                        // 🟢 Giữ lại ward cũ trong session
+                        boolean found = false;
                         for (int i = 0; i < wardList.size(); i++) {
                             if (wardList.get(i).getWardId() == currentWardId) {
                                 spnWard.setSelection(i);
                                 selectedWardId = currentWardId;
+                                found = true;
                                 Log.d("DEBUG", "🟢 Giữ nguyên wardId hiện tại = " + currentWardId);
                                 break;
                             }
                         }
-                    } else {
-                        // 🟢 Nếu chưa có wardID, chọn mặc định ward đầu tiên
-                        if (!wardList.isEmpty()) {
+                        if (!found && !wardList.isEmpty()) {
+                            // Nếu không tìm thấy ward cũ, chọn ward đầu tiên
                             selectedWardId = wardList.get(0).getWardId();
-                            Log.d("DEBUG", "🟢 Chọn ward đầu tiên mặc định = " + selectedWardId);
+                            spnWard.setSelection(0);
+                            Log.d("DEBUG", "🟢 Không tìm thấy ward cũ, chọn mặc định = " + selectedWardId);
                         }
                     }
 
-                    // 🟢 Gán lại khi người dùng chọn phường
+                    // 🟢 Luôn cập nhật selectedWardId khi người dùng thay đổi
                     spnWard.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
                         @Override
                         public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                            selectedWardId = wardList.get(position).getWardId();
-                            Log.d("DEBUG", "🟢 Người dùng chọn wardId = " + selectedWardId);
+                            if (position >= 0 && position < wardList.size()) {
+                                selectedWardId = wardList.get(position).getWardId();
+                                Log.d("DEBUG", "🟢 Người dùng chọn wardId = " + selectedWardId);
+                            }
                         }
 
                         @Override
                         public void onNothingSelected(android.widget.AdapterView<?> parent) {}
                     });
+
+                    // 🟢 Debug check: đảm bảo wardId != 0
+                    Log.d("DEBUG", "✅ WardList size = " + wardList.size() + ", selectedWardId = " + selectedWardId);
+                } else {
+                    Toast.makeText(EditProfileActivity.this, "⚠️ Không có dữ liệu phường!", Toast.LENGTH_SHORT).show();
                 }
             }
 

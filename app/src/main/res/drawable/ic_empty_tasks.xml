@@ -1,0 +1,42 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Clipboard body -->
+    <path
+        android:pathData="M80,25 L80,20 A5,5 0 0,0 75,15 L45,15 A5,5 0 0,0 40,20 L40,25 L30,25 A10,10 0 0,0 20,35 L20,95 A10,10 0 0,0 30,105 L90,105 A10,10 0 0,0 100,95 L100,35 A10,10 0 0,0 90,25 L80,25z"
+        android:fillColor="#F8F9FA"
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="2"/>
+
+    <!-- Clipboard top -->
+    <path
+        android:pathData="M75,15 L45,15 A5,5 0 0,1 50,10 L70,10 A5,5 0 0,1 75,15z"
+        android:fillColor="#E9ECEF"
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="1"/>
+
+    <!-- Plus sign -->
+    <path
+        android:pathData="M65,55 L65,65 55,65 55,75 65,75 65,85 75,85 75,75 85,75 85,65 75,65 75,55z"
+        android:fillColor="#CCCCCC"/>
+
+    <!-- Lines -->
+    <path
+        android:pathData="M35,45 L85,45"
+        android:strokeColor="#E0E0E0"
+        android:strokeWidth="2"/>
+    <path
+        android:pathData="M35,55 L80,55"
+        android:strokeColor="#E0E0E0"
+        android:strokeWidth="2"/>
+    <path
+        android:pathData="M35,65 L75,65"
+        android:strokeColor="#E0E0E0"
+        android:strokeWidth="2"/>
+    <path
+        android:pathData="M35,75 L70,75"
+        android:strokeColor="#E0E0E0"
+        android:strokeWidth="2"/>
+</vector>

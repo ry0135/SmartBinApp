@@ -19,6 +19,7 @@ import com.example.smartbinapp.model.TaskSummary;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import retrofit2.Call;
@@ -26,13 +27,12 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class TaskSummaryActivity extends AppCompatActivity {
+
     private RecyclerView recyclerView;
     private TaskSummaryAdapter adapter;
     private int workerId;
-    private ImageView ivMenu;
-
-    private LinearLayout btnHome,btnReport, btnShowTask, btnAccount;
-
+    private LinearLayout btnHome, btnReport, btnShowTask, btnAccount;
+    private LinearLayout tvEmptyState;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,128 +40,157 @@ public class TaskSummaryActivity extends AppCompatActivity {
         setContentView(R.layout.activity_task_summary);
 
         // Lấy workerId từ SharedPreferences
-        // Lấy workerId từ SharedPreferences "UserSession"
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String savedUserId = prefs.getString("userId", "0");
+        workerId = Integer.parseInt(savedUserId);
 
-// Ép kiểu sang int (nếu có giá trị)
-        if (savedUserId != null) {
-            workerId = Integer.parseInt(savedUserId);
-        } else {
-            workerId = 0; // fallback
-        }
-        recyclerView = findViewById(R.id.recyclerTaskSummary);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-
-        loadTaskSummaries();
         initializeViews();
         setupClickListeners();
+        loadTaskSummaries();
+    }
+
+    private void initializeViews() {
+        recyclerView = findViewById(R.id.recyclerTaskSummary);
+        tvEmptyState = findViewById(R.id.tvEmptyState);
+        btnHome = findViewById(R.id.btn_home);
+        btnReport = findViewById(R.id.btn_report);
+        btnShowTask = findViewById(R.id.btn_showtask);
+        btnAccount = findViewById(R.id.btn_account);
+
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        // Set active tab
+        setActiveTab(btnShowTask, true);
     }
 
     private void loadTaskSummaries() {
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
+
+        // Hiển thị loading
+        showLoading(true);
+
         apiService.getTaskSummaries(workerId).enqueue(new Callback<List<TaskSummary>>() {
             @Override
             public void onResponse(Call<List<TaskSummary>> call, Response<List<TaskSummary>> response) {
+                showLoading(false);
+
                 if (response.isSuccessful() && response.body() != null) {
-                    adapter = new TaskSummaryAdapter(response.body(), summary -> {
-                        Intent intent = new Intent(TaskSummaryActivity.this, TaskDetailActivity.class);
-                        intent.putExtra("batchId", summary.getBatchId());
-                        intent.putExtra("workerId", workerId);
-                        startActivity(intent);
-                    });
-                    recyclerView.setAdapter(adapter);
+                    List<TaskSummary> taskList = response.body();
+
+                    if (taskList.isEmpty()) {
+                        showEmptyState(true);
+                    } else {
+                        showEmptyState(false);
+                        adapter = new TaskSummaryAdapter(taskList, summary -> {
+                            openTaskDetail(summary);
+                        });
+                        recyclerView.setAdapter(adapter);
+                    }
                 } else {
+                    showEmptyState(true);
                     Toast.makeText(TaskSummaryActivity.this, "Không tải được dữ liệu", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<List<TaskSummary>> call, Throwable t) {
-                Toast.makeText(TaskSummaryActivity.this, "Lỗi: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                showLoading(false);
+                showEmptyState(true);
+                Toast.makeText(TaskSummaryActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
 
+    private void openTaskDetail(TaskSummary summary) {
+        Intent intent = new Intent(TaskSummaryActivity.this, TaskDetailActivity.class);
+        intent.putExtra("batchId", summary.getBatchId());
+        intent.putExtra("workerId", workerId);
+        intent.putExtra("taskName", summary.getNote());
+        intent.putExtra("priority", summary.getMinPriority());
+        intent.putExtra("status", summary.getStatus());
+        startActivity(intent);
+    }
 
-    private void initializeViews() {
-        ivMenu = findViewById(R.id.iv_menu);
-        btnHome = findViewById(R.id.btn_home);
-        btnShowTask = findViewById(R.id.btn_showtask);
-        btnAccount = findViewById(R.id.btn_account);
-        btnReport = findViewById(R.id.btn_report);
+    private void showLoading(boolean show) {
+        // Bạn có thể thêm ProgressBar nếu cần
+        if (show) {
+            recyclerView.setVisibility(View.GONE);
+            tvEmptyState.setVisibility(View.GONE);
+        }
+    }
+
+    private void showEmptyState(boolean show) {
+        if (show) {
+            recyclerView.setVisibility(View.GONE);
+            tvEmptyState.setVisibility(View.VISIBLE);
+        } else {
+            recyclerView.setVisibility(View.VISIBLE);
+            tvEmptyState.setVisibility(View.GONE);
+        }
     }
 
     private void setupClickListeners() {
-//        ivMenu.setOnClickListener(v -> {
-//            animateButtonClick(v);
-//            Toast.makeText(this, "Menu", Toast.LENGTH_SHORT).show();
-//        });
-
         btnHome.setOnClickListener(v -> {
             animateButtonClick(v);
-            setActiveTab(btnHome, true);
-            setActiveTab(btnReport, false);
-            setActiveTab(btnShowTask, false);
-            setActiveTab(btnAccount, false);
-            Intent intent = new Intent(TaskSummaryActivity.this, HomeActivity.class);
-            startActivity(intent);
-            finish();
+            navigateToActivity(HomeActivity.class);
         });
 
         btnReport.setOnClickListener(v -> {
             animateButtonClick(v);
-            setActiveTab(btnHome, false);
-            setActiveTab(btnReport, true);
-            setActiveTab(btnShowTask, false);
-            setActiveTab(btnAccount, false);
-            Intent intent = new Intent(TaskSummaryActivity.this, TaskSummaryActivity.class);
-            startActivity(intent);
-            finish();
+            navigateToActivity(ReportsListActivity.class);
         });
 
         btnShowTask.setOnClickListener(v -> {
             animateButtonClick(v);
-            setActiveTab(btnHome, false);
-            setActiveTab(btnShowTask, true);
-            setActiveTab(btnReport, false);
-            setActiveTab(btnAccount, false);
-            Intent intent = new Intent(TaskSummaryActivity.this, TaskSummaryActivity.class);
-            startActivity(intent);
-            finish();
+            // Đã ở trang nhiệm vụ, chỉ refresh
+            loadTaskSummaries();
         });
+
         btnAccount.setOnClickListener(v -> {
             animateButtonClick(v);
-            setActiveTab(btnHome, false);
-            setActiveTab(btnReport, false);
-            setActiveTab(btnShowTask, false);
-            setActiveTab(btnAccount, true);
-            Intent intent = new Intent(TaskSummaryActivity.this, ProfileActivity.class);
-            startActivity(intent);
-            finish();
+            navigateToActivity(ProfileActivity.class);
         });
     }
 
+    private void navigateToActivity(Class<?> cls) {
+        Intent intent = new Intent(TaskSummaryActivity.this, cls);
+        startActivity(intent);
+        finish();
+    }
 
     private void setActiveTab(LinearLayout tab, boolean isActive) {
         ImageView icon = (ImageView) tab.getChildAt(0);
         TextView text = (TextView) tab.getChildAt(1);
 
-        int activeColor = getResources().getColor(android.R.color.holo_green_dark);
-        int inactiveColor = getResources().getColor(android.R.color.darker_gray);
+        int activeColor = getResources().getColor(R.color.green_active);
+        int inactiveColor = getResources().getColor(R.color.gray_inactive);
 
         icon.setColorFilter(isActive ? activeColor : inactiveColor);
         text.setTextColor(isActive ? activeColor : inactiveColor);
     }
 
     private void animateButtonClick(View view) {
-        ObjectAnimator scaleDown = ObjectAnimator.ofFloat(view, "scaleX", 1f, 0.95f);
-        scaleDown.setDuration(100);
-        scaleDown.start();
+        ObjectAnimator scaleDownX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 0.95f);
+        ObjectAnimator scaleDownY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 0.95f);
+        scaleDownX.setDuration(100);
+        scaleDownY.setDuration(100);
+        scaleDownX.start();
+        scaleDownY.start();
 
-        ObjectAnimator scaleUp = ObjectAnimator.ofFloat(view, "scaleX", 0.95f, 1f);
-        scaleUp.setDuration(100);
-        scaleUp.setStartDelay(100);
-        scaleUp.start();
+        ObjectAnimator scaleUpX = ObjectAnimator.ofFloat(view, "scaleX", 0.95f, 1f);
+        ObjectAnimator scaleUpY = ObjectAnimator.ofFloat(view, "scaleY", 0.95f, 1f);
+        scaleUpX.setDuration(100);
+        scaleUpY.setDuration(100);
+        scaleUpX.setStartDelay(100);
+        scaleUpY.setStartDelay(100);
+        scaleUpX.start();
+        scaleUpY.start();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh data khi quay lại màn hình
+        loadTaskSummaries();
     }
 }

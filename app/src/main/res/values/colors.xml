@@ -10,4 +10,20 @@
     <color name="teal_700">#018786</color>
     <color name="green">#2FF406FF</color>
     <color name="error_red">#FF5252</color>
+    <color name="green_active">#4CAF50</color>
+    <color name="gray_inactive">#666666</color>
+
+
+    <!-- 🌿 Tông màu chủ đạo SmartBin -->
+    <color name="green_primary">#4CAF50</color>
+    <color name="green_dark">#388E3C</color>
+    <color name="green_light">#C8E6C9</color>
+    <color name="white_bg">#F8F9FA</color>
+
+    <!-- ⚠️ Màu trạng thái -->
+    <color name="status_open">#FFC107</color>
+    <color name="status_in_progress">#9C27B0</color>
+    <color name="status_assigned">#03A9F4</color>
+    <color name="status_completed">#4CAF50</color>
+    <color name="status_cancelled">#F44336</color>
 </resources>
