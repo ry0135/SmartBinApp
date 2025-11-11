@@ -27,6 +27,7 @@ import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.example.smartbinapp.model.Bin;
+import com.example.smartbinapp.model.Notification;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
 import com.example.smartbinapp.service.BinWebSocketService;
@@ -38,6 +39,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Handler;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -64,7 +66,7 @@ public class HomeActivity extends AppCompatActivity {
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
 
     // UI Components
-    private ImageView ivMenu;
+    private ImageView ivnotification;
     private LinearLayout btnHome, btnReport, btnShowTask, btnAccount;
     private FloatingActionButton fabnearBin, fabMyLocation;
     private MapView mapView;
@@ -80,7 +82,11 @@ public class HomeActivity extends AppCompatActivity {
     // Realtime WebSocket
     private final BinWebSocketService wsService = new BinWebSocketService();
 
+    private final Map<Marker, Bin> binDataMap = new HashMap<>();
 
+    private TextView tvBadge;
+
+    private Runnable updateBadgeTask;
     // ------------------- Lifecycle Methods -------------------
 
     @Override
@@ -108,6 +114,11 @@ public class HomeActivity extends AppCompatActivity {
 
         // Lắng nghe dữ liệu realtime từ WebSocket
         wsService.setListener(this::onBinUpdateReceived);
+
+        // Gọi lần đầu khi mở app
+        fetchUnreadCount();
+
+
     }
 
     // ------------------- Map Callbacks -------------------
@@ -152,24 +163,13 @@ public class HomeActivity extends AppCompatActivity {
                     }
 
                     vietmapGL.setOnMarkerClickListener(marker -> {
-                        // Tìm Bin tương ứng theo marker title
-                        Bin clickedBin = null;
-                        for (Map.Entry<Integer, Marker> entry : markerMap.entrySet()) {
-                            if (entry.getValue().equals(marker)) {
-                                // Bạn có thể lưu thông tin Bin vào Map<Marker, Bin> để dễ hơn
-                                // Ở đây ta chỉ dựa vào entryId để gọi lại API chi tiết
-                                int binId = entry.getKey();
-                                clickedBin = new Bin();
-                                clickedBin.setBinId(binId);
-                                clickedBin.setBinCode(marker.getTitle());
-                                break;
-                            }
-                        }
-
+                        Bin clickedBin = binDataMap.get(marker); // ✅ Lấy bin gốc đúng 100%
                         if (clickedBin != null) {
                             showBinActionBottomSheet(clickedBin, marker);
+                        } else {
+                            Log.w("MarkerClick", "⚠️ Không tìm thấy dữ liệu bin cho marker: " + marker.getTitle());
                         }
-                        return true; // chặn click mặc định
+                        return true; // ✅ chặn xử lý click mặc định
                     });
                 } else {
                     Toast.makeText(HomeActivity.this, "Không tải được danh sách thùng rác", Toast.LENGTH_SHORT).show();
@@ -205,8 +205,14 @@ public class HomeActivity extends AppCompatActivity {
         btnReportBin.setOnClickListener(v -> {
             Intent intent = new Intent(HomeActivity.this, ReportBinActivity.class);
             intent.putExtra("bin_id", bin.getBinId());
-            intent.putExtra("bin_address", bin.getStreet() +"," + bin.getWardName()+"," + bin.getProvinceName());
-            intent.putExtra("bin_code", marker.getTitle());
+            intent.putExtra("bin_address",
+                    (bin.getStreet() != null ? bin.getStreet() : "Đường chưa xác định") + ", " +
+                            (bin.getWardName() != null ? bin.getWardName() : "Phường chưa rõ") + ", " +
+                            (bin.getProvinceName() != null ? bin.getProvinceName() : "Tỉnh/TP chưa rõ"));
+            intent.putExtra("bin_code", bin.getBinCode());
+            Log.d("ReportIntent", "Street: " + bin.getStreet());
+            Log.d("ReportIntent", "Ward: " + bin.getWardName());
+            Log.d("ReportIntent", "Province: " + bin.getProvinceName());
             startActivity(intent);
             dialog.dismiss();
         });
@@ -215,51 +221,49 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void onBinUpdateReceived(Bin updatedBin) {
-        // Cần chạy trên Main Thread vì liên quan đến việc cập nhật UI (Bản đồ)
         runOnUiThread(() -> {
-            if (vietmapGL == null) return;
+            Log.d(TAG, "🛰 Received update: " + updatedBin.getBinCode() + " | binId=" + updatedBin.getBinId());
             addOrUpdateMarker(updatedBin, true);
-
-            int percent = (int) ((updatedBin.getCurrentFill() / updatedBin.getCapacity()) * 100);
-            Toast.makeText(this,
-                    "📡 Cập nhật realtime: " + updatedBin.getBinCode() + " (" + percent + "%)",
-                    Toast.LENGTH_SHORT).show();
         });
     }
 
     private void addOrUpdateMarker(Bin bin, boolean isRealtimeUpdate) {
         if (vietmapGL == null) return;
 
-        int percent = (int) ((bin.getCurrentFill() / bin.getCapacity()) * 100);
-
-        // 1. Lấy Icon đã được xử lý Density (từ hàm getSafeBinIcon đã sửa)
+        int percent = (int) bin.getCurrentFill() ;
         Icon icon = getSafeBinIcon(percent);
 
         String title = bin.getBinCode() + " - " + percent + "% đầy";
         String snippet = isRealtimeUpdate ?
-                "Cập nhật lúc: " + System.currentTimeMillis() : // Dùng System.currentTimeMillis() nếu bin.getLastUpdated() là epoch time quá dài
+                "Cập nhật lúc: " + System.currentTimeMillis() :
                 bin.getWardName() + ", " + bin.getProvinceName();
 
-
-        // XÓA MARKER CŨ
-        if (markerMap.containsKey(bin.getBinId())) {
+        // 🚫 Chỉ xóa marker cũ nếu binId > 0
+        if (bin.getBinId() > 0 && markerMap.containsKey(bin.getBinId())) {
             Marker oldMarker = markerMap.remove(bin.getBinId());
-            if (oldMarker != null) {
-                vietmapGL.removeMarker(oldMarker);
-                Log.d(TAG, "Removed old marker for BinID: " + bin.getBinId());
-            }
+            if (oldMarker != null) vietmapGL.removeMarker(oldMarker);
+            Log.d(TAG, "Removed old marker for BinID: " + bin.getBinId());
         }
 
-        // THÊM MARKER MỚI
         Marker marker = vietmapGL.addMarker(new MarkerOptions()
                 .position(new LatLng(bin.getLatitude(), bin.getLongitude()))
                 .title(title)
                 .snippet(snippet)
                 .icon(icon)
         );
-        markerMap.put(bin.getBinId(), marker);
+
+        if (bin.getBinId() > 0) {
+            markerMap.put(bin.getBinId(), marker);
+        } else {
+            markerMap.put(marker.hashCode(), marker);
+        }
+
+// ✅ Gắn dữ liệu bin thật
+        binDataMap.put(marker, bin);
+
         Log.d(TAG, "Added new marker for BinID: " + bin.getBinId() + " with fill: " + percent + "%");
     }
+
 
     // ------------------- Icon Handling (Khắc phục lỗi màu đen) -------------------
 
@@ -409,9 +413,38 @@ public class HomeActivity extends AppCompatActivity {
             }
         }
     }
+    private void fetchUnreadCount() {
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+        String savedUserId = prefs.getString("userId", "0");
+        ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
+        apiService.getUnreadNotifications(savedUserId).enqueue(new Callback<List<Notification>>() {
+            @Override
+            public void onResponse(Call<List<Notification>> call, Response<List<Notification>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    int unread = response.body().size(); // ✅ Đếm số phần tử
+                    updateNotificationBadge(unread);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Notification>> call, Throwable t) {
+                // Có thể log hoặc bỏ qua nếu lỗi mạng
+            }
+        });
+    }
+
+
+    private void updateNotificationBadge(int unreadCount) {
+        if (unreadCount > 0) {
+            tvBadge.setText(String.valueOf(unreadCount));
+            tvBadge.setVisibility(View.VISIBLE);
+        } else {
+            tvBadge.setVisibility(View.GONE);
+        }
+    }
     private void initializeViews() {
-        ivMenu = findViewById(R.id.iv_menu);
+        ivnotification = findViewById(R.id.iv_notification);
         btnHome = findViewById(R.id.btn_home);
         btnShowTask = findViewById(R.id.btn_showtask);
         btnAccount = findViewById(R.id.btn_account);
@@ -443,11 +476,8 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void setupClickListeners() {
-        ivMenu.setOnClickListener(v -> {
-            if (drawerLayout.isDrawerOpen(GravityCompat.END))
-                drawerLayout.closeDrawer(GravityCompat.END);
-            else
-                drawerLayout.openDrawer(GravityCompat.END);
+        ivnotification.setOnClickListener(v -> {
+            startActivity(new Intent(HomeActivity.this, NotificationListActivity.class));
         });
         btnAccount.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         btnShowTask.setOnClickListener(v -> startActivity(new Intent(this, TaskSummaryActivity.class)));

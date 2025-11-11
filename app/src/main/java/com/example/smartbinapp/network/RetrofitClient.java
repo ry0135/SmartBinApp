@@ -6,6 +6,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
 
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -17,14 +18,12 @@ public class RetrofitClient {
     private static Retrofit retrofit;
     private static int currentUrlIndex = 0;
     private static final String[] BASE_URLS = {
-            // Preferred from build config
             BuildConfig.BASE_URL,
             BuildConfig.BASE_URL_FALLBACK1,
             BuildConfig.BASE_URL_FALLBACK2,
-            // Additional fallbacks for common Tomcat context names
-            "http://10.0.2.2:8080/SmartBinWeb_war_exploded/",
-            "http://10.0.2.2:8080/SmartBinWeb/",
-            "http://10.0.2.2:8080/"
+            "http://10.12.16.30:8080/SmartBinWeb_war_exploded/",
+            "http://10.12.16.30:8080/SmartBinWeb/",
+            "http://10.12.16.30:8080/"
     };
 
     public static Retrofit getRetrofitInstance() {
@@ -34,51 +33,53 @@ public class RetrofitClient {
         return retrofit;
     }
 
-    public static Retrofit getRetrofitInstanceWithFallback() {
-        // Try current URL first
-        if (retrofit != null) {
-            return retrofit;
-        }
-        
-        // Try all URLs
-        for (int i = 0; i < BASE_URLS.length; i++) {
-            try {
-                android.util.Log.d("RetrofitClient", "Trying URL " + (i + 1) + ": " + BASE_URLS[i]);
-                retrofit = createRetrofitInstance(BASE_URLS[i]);
-                currentUrlIndex = i;
-                android.util.Log.d("RetrofitClient", "Successfully connected to: " + BASE_URLS[i]);
-                return retrofit;
-            } catch (Exception e) {
-                android.util.Log.w("RetrofitClient", "Failed to connect to: " + BASE_URLS[i] + " - " + e.getMessage());
-                retrofit = null;
-            }
-        }
-        
-        // If all fail, return the first one as fallback
-        android.util.Log.e("RetrofitClient", "All URLs failed, using primary URL as fallback");
-        return createRetrofitInstance(BASE_URLS[0]);
-    }
-
     private static Retrofit createRetrofitInstance(String baseUrl) {
-        // Logger - bật để debug API calls
-        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+        OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .callTimeout(120, TimeUnit.SECONDS);
 
-        OkHttpClient client = new OkHttpClient.Builder()
-                .addInterceptor(logging)
-                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                .build();
+        if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+            logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
+            clientBuilder.addInterceptor(logging);
+        }
 
-        // ✅ Gson custom: parse Date từ timestamp (long)
+        OkHttpClient client = clientBuilder.build();
+
+        // ✅ Custom Gson xử lý Date dạng epoch milliseconds
         Gson gson = new GsonBuilder()
-                .registerTypeAdapter(Date.class,
-                        (JsonDeserializer<Date>) (json, typeOfT, context) ->
-                                new Date(json.getAsJsonPrimitive().getAsLong()))
+                .registerTypeAdapter(Date.class, (JsonDeserializer<Date>) (json, typeOfT, context) -> {
+                    try {
+                        // Trường hợp null
+                        if (json == null || json.isJsonNull()) {
+                            return null;
+                        }
+
+                        // Nếu là số (epoch time)
+                        if (json.getAsJsonPrimitive().isNumber()) {
+                            long timestamp = json.getAsLong();
+                            return new Date(timestamp);
+                        }
+
+                        // Nếu là chuỗi, thử parse sang long
+                        String value = json.getAsString();
+                        try {
+                            long timestamp = Long.parseLong(value);
+                            return new Date(timestamp);
+                        } catch (NumberFormatException e) {
+                            // Nếu không phải số thì Gson tự parse theo định dạng ISO
+                            return context.deserialize(json, Date.class);
+                        }
+
+                    } catch (Exception e) {
+                        android.util.Log.e("RetrofitClient", "❌ Lỗi parse Date: " + e.getMessage());
+                        return null;
+                    }
+                })
                 .create();
 
-        // Retrofit
         return new Retrofit.Builder()
                 .baseUrl(baseUrl)
                 .client(client)
@@ -87,9 +88,7 @@ public class RetrofitClient {
     }
 
     public static void resetRetrofitInstance() {
-        // Rotate to next base URL to actually try alternatives on next call
         currentUrlIndex = (currentUrlIndex + 1) % BASE_URLS.length;
-        android.util.Log.w("RetrofitClient", "Resetting Retrofit. Next base URL index: " + currentUrlIndex + " -> " + BASE_URLS[currentUrlIndex]);
         retrofit = null;
     }
 }

@@ -245,7 +245,17 @@ public class RegisterActivity extends AppCompatActivity {
                     try {
                         String errorBody = response.errorBody().string();
                         Log.e("REGISTER_ERROR", "Error body: " + errorBody);
-                        Toast.makeText(RegisterActivity.this, "Đăng ký thất bại: " + errorBody, Toast.LENGTH_LONG).show();
+
+                        // ⚡ Phân tích lỗi JSON (ví dụ {"code":"EMAIL_CONFLICT","message":"Email đã tồn tại trong hệ thống"})
+                        if (errorBody.contains("EMAIL_CONFLICT")) {
+                            tilEmail.setError("Email đã tồn tại trong hệ thống");
+                        } else if (errorBody.contains("INVALID_PASSWORD")) {
+                            tilPassword.setError("Mật khẩu không hợp lệ");
+                        } else if (errorBody.contains("INVALID_PHONE")) {
+                            tilPhone.setError("Số điện thoại không hợp lệ");
+                        } else {
+                            Toast.makeText(RegisterActivity.this, "Đăng ký thất bại", Toast.LENGTH_SHORT).show();
+                        }
                     } catch (Exception e) {
                         Toast.makeText(RegisterActivity.this, "Đăng ký thất bại", Toast.LENGTH_SHORT).show();
                     }

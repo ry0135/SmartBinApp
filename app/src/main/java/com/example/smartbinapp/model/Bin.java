@@ -6,9 +6,8 @@ import java.util.Date;
 public class Bin {
 
     // 1. Ánh xạ trường JSON "binID" vào biến "binId"
-    @SerializedName("binID")
+    @SerializedName(value = "binId", alternate = {"binID"})
     private int binId; // Dùng camelCase cho đúng chuẩn Java
-
     @SerializedName("binCode")
     private String binCode;
 
@@ -34,7 +33,30 @@ public class Bin {
     private int status; // Sửa thành int để khớp với JSON (2)
 
     @SerializedName("lastUpdated")
-    private Date lastUpdated;
+    private Object lastUpdatedRaw; // 👈 Giữ nguyên kiểu Object để tránh Gson lỗi
+
+    // 👇 Getter thủ công convert sang Date
+    public Date getLastUpdated() {
+        if (lastUpdatedRaw == null) return null;
+        try {
+            if (lastUpdatedRaw instanceof Number) {
+                long timestamp = ((Number) lastUpdatedRaw).longValue();
+                return new Date(timestamp);
+            }
+            if (lastUpdatedRaw instanceof String) {
+                long timestamp = Long.parseLong((String) lastUpdatedRaw);
+                return new Date(timestamp);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    // 👇 Setter cho Gson
+    public void setLastUpdated(Object lastUpdatedRaw) {
+        this.lastUpdatedRaw = lastUpdatedRaw;
+    }
 
     // Các trường này không có trong JSON gốc nhưng được thêm vào từ ward/province lồng nhau
     private String wardName;
@@ -107,7 +129,7 @@ public class Bin {
         this.street = street;
         this.capacity = 100.0; // Default capacity
         this.wardID = 1; // Default ward
-        this.lastUpdated = new Date();
+        this.lastUpdatedRaw = System.currentTimeMillis(); // epoch time hiện tại
         this.wardName = "Unknown";
         this.provinceName = "Unknown";
     }
@@ -125,13 +147,13 @@ public class Bin {
         this.currentFill = currentFill;
     }
 
-    public Date getLastUpdated() {
-        return lastUpdated;
-    }
-
-    public void setLastUpdated(Date lastUpdated) {
-        this.lastUpdated = lastUpdated;
-    }
+//    public Date getLastUpdated() {
+//        return lastUpdated;
+//    }
+//
+//    public void setLastUpdated(Date lastUpdated) {
+//        this.lastUpdated = lastUpdated;
+//    }
 
 
     public String getWardName() {

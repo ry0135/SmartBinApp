@@ -14,7 +14,7 @@ import ua.naiksoftware.stomp.StompClient;
 public class TaskWebSocketService {
 
     private static final String TAG = "TaskWebSocket";
-    private static final String WS_URL = "ws://13.250.55.46:8080/SmartBinWeb/ws-bin"; //
+    private static final String WS_URL = "ws://54.254.193.147:8080/SmartBinWeb/ws-bin"; //
     private final Gson gson = new Gson();
 
     private StompClient stompClient;

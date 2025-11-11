@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#F8F9FA">
 
     <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
@@ -11,25 +11,74 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:background="#4CAF50"
-        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        android:minHeight="?attr/actionBarSize"
         app:title="Danh sách nhiệm vụ"
         app:titleTextColor="@android:color/white"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Empty State -->
+    <LinearLayout
+        android:id="@+id/tvEmptyState"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/bottom_navigation"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_margin="32dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/toolbar">
+
+        <ImageView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:src="@drawable/ic_empty_tasks"
+            android:tint="#CCCCCC" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Không có nhiệm vụ nào"
+            android:textSize="18sp"
+            android:textColor="#666666"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Bạn chưa có nhiệm vụ nào được giao"
+            android:textSize="14sp"
+            android:textColor="#999999"
+            android:layout_marginTop="8dp" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Làm mới"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/button_green_background"
+            android:layout_marginTop="16dp"
+            android:paddingHorizontal="24dp"
+            android:onClick="onRefreshClick" />
+
+    </LinearLayout>
 
     <!-- RecyclerView danh sách batch -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerTaskSummary"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:padding="8dp"
+        android:padding="12dp"
         android:clipToPadding="false"
         android:scrollbars="vertical"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
+        app:layout_constraintBottom_toTopOf="@+id/bottom_navigation"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toBottomOf="@+id/toolbar" />
 
     <!-- Bottom Navigation -->
     <LinearLayout
@@ -37,12 +86,11 @@
         android:layout_width="0dp"
         android:layout_height="70dp"
         android:background="#FFFFFF"
-        android:elevation="8dp"
+        android:elevation="16dp"
         android:orientation="horizontal"
-        android:gravity="center"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
         <!-- Home Button -->
         <LinearLayout
@@ -50,9 +98,10 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:orientation="vertical"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
-            android:background="?attr/selectableItemBackground">
+            android:orientation="vertical"
+            android:padding="8dp">
 
             <ImageView
                 android:layout_width="24dp"
@@ -63,10 +112,10 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Home"
+                android:layout_marginTop="4dp"
+                android:text="Trang chủ"
                 android:textColor="#666666"
-                android:textSize="12sp"
-                android:layout_marginTop="4dp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <!-- Report Button -->
@@ -75,23 +124,24 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:orientation="vertical"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
-            android:background="?attr/selectableItemBackground">
+            android:orientation="vertical"
+            android:padding="8dp">
 
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_flag"
+                android:src="@drawable/ic_report"
                 android:tint="#666666" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
                 android:text="Báo cáo"
                 android:textColor="#666666"
-                android:textSize="12sp"
-                android:layout_marginTop="4dp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <!-- Task Button -->
@@ -100,23 +150,24 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:orientation="vertical"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
-            android:background="?attr/selectableItemBackground">
+            android:orientation="vertical"
+            android:padding="8dp">
 
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_flag"
+                android:src="@drawable/ic_task"
                 android:tint="#4CAF50" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
                 android:text="Nhiệm vụ"
                 android:textColor="#4CAF50"
-                android:textSize="12sp"
-                android:layout_marginTop="4dp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <!-- Account Button -->
@@ -125,9 +176,10 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:orientation="vertical"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:gravity="center"
-            android:background="?attr/selectableItemBackground">
+            android:orientation="vertical"
+            android:padding="8dp">
 
             <ImageView
                 android:layout_width="24dp"
@@ -138,10 +190,10 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
                 android:text="Tài khoản"
                 android:textColor="#666666"
-                android:textSize="12sp"
-                android:layout_marginTop="4dp" />
+                android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
 

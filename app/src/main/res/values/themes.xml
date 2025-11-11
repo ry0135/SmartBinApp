@@ -1,14 +1,36 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
     <style name="Base.Theme.SmartBinApp" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+        <!-- 🌿 Màu chủ đạo -->
+        <item name="colorPrimary">@color/green_primary</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorPrimaryContainer">@color/green_light</item>
+
+        <!-- 🌳 Màu phụ -->
+        <item name="colorSecondary">@color/green_dark</item>
+        <item name="colorOnSecondary">@android:color/white</item>
+
+        <!-- ⚪ Nền app -->
+        <item name="android:windowBackground">@color/white_bg</item>
+
+        <!-- ✍️ Màu chữ -->
+        <item name="android:textColorPrimary">#212121</item>
+        <item name="android:textColorSecondary">#616161</item>
+
+        <!-- 🟢 Nút -->
+        <item name="android:buttonStyle">@style/SmartBinButtonStyle</item>
+        <item name="android:colorControlHighlight">#A5D6A7</item>
     </style>
 
     <style name="Theme.SmartBinApp" parent="Base.Theme.SmartBinApp" />
-    
+
     <style name="Theme.SmartBinApp.NoActionBar" parent="Base.Theme.SmartBinApp">
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+    <style name="SmartBinButtonStyle" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/green_primary</item>
+        <item name="android:textColor">@android:color/white</item>
     </style>
 </resources>

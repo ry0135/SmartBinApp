@@ -3,7 +3,7 @@ package com.example.smartbinapp.model;
 import com.google.gson.annotations.SerializedName;
 
 public class Ward {
-    @SerializedName("wardID")
+    @SerializedName("wardId")
     private int wardId;
     private String wardName;
 

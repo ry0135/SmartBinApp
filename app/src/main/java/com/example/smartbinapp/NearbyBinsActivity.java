@@ -30,7 +30,12 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
+import java.lang.reflect.Type;
 import java.util.List;
 
 import retrofit2.Call;
@@ -42,6 +47,11 @@ import vn.vietmap.vietmapsdk.annotations.IconFactory;
 import vn.vietmap.vietmapsdk.annotations.MarkerOptions;
 import vn.vietmap.vietmapsdk.camera.CameraUpdateFactory;
 import vn.vietmap.vietmapsdk.geometry.LatLng;
+import vn.vietmap.vietmapsdk.location.LocationComponent;
+import vn.vietmap.vietmapsdk.location.LocationComponentActivationOptions;
+import vn.vietmap.vietmapsdk.location.LocationComponentOptions;
+import vn.vietmap.vietmapsdk.location.modes.CameraMode;
+import vn.vietmap.vietmapsdk.location.modes.RenderMode;
 import vn.vietmap.vietmapsdk.maps.MapView;
 import vn.vietmap.vietmapsdk.maps.Style;
 import vn.vietmap.vietmapsdk.maps.VietMapGL;
@@ -85,15 +95,53 @@ public class NearbyBinsActivity extends AppCompatActivity {
         progressFill = findViewById(R.id.progressFill);
         btnReport = findViewById(R.id.btnReport);
 
-        initIcons(); // ✅ Khởi tạo icon giống HomeActivity
+        initIcons(); // ✅ Khởi tạo icon
 
         mapView.getMapAsync(map -> {
             vietmapGL = map;
             vietmapGL.setStyle(
                     new Style.Builder().fromUri("https://maps.vietmap.vn/api/maps/light/styles.json?apikey=" + VIETMAP_API_KEY),
-                    style -> requestLocationAndFetchBins()
+                    style -> {
+                        // ✅ Gọi enableLocationComponent SAU khi style load xong
+                        enableLocationComponent(style);
+                        requestLocationAndFetchBins();
+                    }
             );
+
         });
+    }
+    private void enableLocationComponent(@NonNull Style style) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+            // ✅ Nếu chưa có quyền -> yêu cầu người dùng cho phép
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE);
+            return;
+        }
+
+        // ✅ Bật location component của VietMap
+        LocationComponent locationComponent = vietmapGL.getLocationComponent();
+
+        LocationComponentOptions customOptions = LocationComponentOptions.builder(this)
+                .trackingGesturesManagement(true)
+                .accuracyColor(ContextCompat.getColor(this, R.color.teal_200))
+                .build();
+
+        LocationComponentActivationOptions options =
+                LocationComponentActivationOptions.builder(this, style)
+                        .useDefaultLocationEngine(true) // ✅ cho phép tự cập nhật vị trí
+                        .locationComponentOptions(customOptions)
+                        .build();
+
+        locationComponent.activateLocationComponent(options);
+        locationComponent.setLocationComponentEnabled(true); // ⚡ QUAN TRỌNG: bật hiển thị vị trí
+        locationComponent.setCameraMode(CameraMode.TRACKING);
+        locationComponent.setRenderMode(RenderMode.COMPASS);
+
     }
 
     // ------------------------- LOCATION -------------------------
@@ -143,7 +191,7 @@ public class NearbyBinsActivity extends AppCompatActivity {
     private void updateMapAndFetch(Location location) {
         double lat = location.getLatitude();
         double lng = location.getLongitude();
-        vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lng), 15));
+        vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lng), 13));
         fetchNearbyBins(lat, lng);
     }
 
@@ -153,25 +201,28 @@ public class NearbyBinsActivity extends AppCompatActivity {
         apiService.getNearbyBins(latitude, longitude).enqueue(new Callback<List<Bin>>() {
             @Override
             public void onResponse(Call<List<Bin>> call, Response<List<Bin>> response) {
-                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
-                    Bin nearestBin = response.body().get(0);
-                    selectedBin = nearestBin;
-
-                    vietmapGL.clear();
-                    Icon icon = getSafeBinIcon(nearestBin);
-                    vietmapGL.addMarker(new MarkerOptions()
-                            .position(new LatLng(nearestBin.getLatitude(), nearestBin.getLongitude()))
-                            .title(nearestBin.getBinCode())
-                            .snippet("Độ đầy: " + (int)((nearestBin.getCurrentFill() / nearestBin.getCapacity()) * 100) + "%")
-                            .icon(icon)
-                    );
-
-                    vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                            new LatLng(nearestBin.getLatitude(), nearestBin.getLongitude()), 16));
-
-                    updateBinInfoCard(nearestBin);
+                if (response.isSuccessful() && response.body() != null) {
+                    List<Bin> bins = response.body();
+                    if (bins != null && !bins.isEmpty()) {
+                        vietmapGL.clear();
+                        for (Bin bin : bins) {
+                            Log.d("Bin", "🗑 " + bin.getBinCode());
+                            Icon icon = getSafeBinIcon(bin);
+                            vietmapGL.addMarker(new MarkerOptions()
+                                    .position(new LatLng(bin.getLatitude(), bin.getLongitude()))
+                                    .title(bin.getBinCode())
+                                    .snippet("Độ đầy: " + bin.getCurrentFill() + "%")
+                                    .icon(icon));
+                        }
+                        Bin firstBin = bins.get(0);
+                        vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                                new LatLng(firstBin.getLatitude(), firstBin.getLongitude()), 14));
+                        updateBinInfoCard(firstBin);
+                    } else {
+                        Toast.makeText(NearbyBinsActivity.this, "Không tìm thấy thùng rác gần đây.", Toast.LENGTH_SHORT).show();
+                    }
                 } else {
-                    Toast.makeText(NearbyBinsActivity.this, "Không tìm thấy thùng rác gần đây.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(NearbyBinsActivity.this, "Không nhận được phản hồi hợp lệ từ server.", Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -185,21 +236,24 @@ public class NearbyBinsActivity extends AppCompatActivity {
     // ------------------------- UI -------------------------
 
     private void updateBinInfoCard(Bin bin) {
+        if (bin == null) return;
+
+        selectedBin = bin;
+
         tvBinCode.setText(bin.getBinCode());
-        tvBinAddress.setText(bin.getStreet() + ", " + bin.getWardName() + ", " + bin.getProvinceName());
-        int percent = (int) ((bin.getCurrentFill() / bin.getCapacity()) * 100);
+        tvBinAddress.setText((bin.getStreet() != null ? bin.getStreet() : "Đường chưa xác định")
+                + ", " + bin.getWardName() + ", " + bin.getProvinceName());
+        int percent = (int) bin.getCurrentFill();
         tvFillLevel.setText(percent + "%");
         progressFill.setProgress(percent);
         cardBinInfo.setVisibility(View.VISIBLE);
 
         btnReport.setOnClickListener(v -> {
-            if (selectedBin != null) {
-                Intent intent = new Intent(NearbyBinsActivity.this, ReportBinActivity.class);
-                intent.putExtra("bin_id", selectedBin.getBinId());
-                intent.putExtra("bin_code", selectedBin.getBinCode());
-                intent.putExtra("bin_address", tvBinAddress.getText().toString());
-                startActivity(intent);
-            }
+            Intent intent = new Intent(NearbyBinsActivity.this, ReportBinActivity.class);
+            intent.putExtra("bin_id", bin.getBinId()); // hoặc selectedBin.getBinId()
+            intent.putExtra("bin_code", bin.getBinCode());
+            intent.putExtra("bin_address", tvBinAddress.getText().toString());
+            startActivity(intent);
         });
     }
 
@@ -213,7 +267,7 @@ public class NearbyBinsActivity extends AppCompatActivity {
     }
 
     private Icon getSafeBinIcon(Bin bin) {
-        int percent = (int) ((bin.getCurrentFill() / bin.getCapacity()) * 100);
+        int percent = (int) bin.getCurrentFill();
         Bitmap targetBitmap;
         if (percent >= 80) targetBitmap = iconRed;
         else if (percent >= 40) targetBitmap = iconYellow;

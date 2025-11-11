@@ -247,7 +247,7 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_flag"
+                android:src="@drawable/ic_report"
                 android:tint="#666666" />
 
             <TextView
@@ -272,7 +272,7 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_flag"
+                android:src="@drawable/ic_task"
                 android:tint="#666666" />
 
             <TextView

@@ -68,11 +68,11 @@ public class VerifyCodeActivity extends AppCompatActivity {
                     Toast.makeText(VerifyCodeActivity.this, "Xác thực thành công!", Toast.LENGTH_SHORT).show();
 
                     if ("forgot".equals(mode)) {
-                        Intent intent = new Intent(VerifyCodeActivity.this, HomeActivity.class);
+                        Intent intent = new Intent(VerifyCodeActivity.this, ResetPasswordActivity.class);
                         intent.putExtra("EMAIL", email);
                         startActivity(intent);
                     } else {
-                        startActivity(new Intent(VerifyCodeActivity.this, LoginActivity.class));
+                        startActivity(new Intent(VerifyCodeActivity.this, VerifyCodeActivity.class));
                     }
                     finish();
                 } else {

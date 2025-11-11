@@ -1,47 +1,106 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="6dp"
-    card_view:cardCornerRadius="10dp"
-    card_view:cardElevation="4dp">
+    android:layout_margin="8dp"
+    android:foreground="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:cardUseCompatPadding="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="16dp">
 
+        <!-- 🟩 Header: Tên nhiệm vụ + Trạng thái -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/tvNote"
+            <TextView
+                android:id="@+id/tvNote"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Thu gom rác khu vực A"
+                android:textColor="#222222"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Trạng thái: "
+                android:textColor="#2196F3"
+                android:textSize="14sp"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
+
+        <!-- 🟨 Thông tin phụ: Ưu tiên + Ngày giao -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_priority"
+                android:tint="#FF9800"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/tvPriority"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ưu tiên: Cao"
+                android:textColor="#666666"
+                android:textSize="14sp" />
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="16dp"
+                android:background="#E0E0E0"
+                android:layout_marginHorizontal="12dp" />
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_calendar"
+                android:tint="#2196F3"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/tvDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="31/10/2025"
+                android:textColor="#666666"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- 🟢 Nút hành động -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAction"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Tên nhiệm vụ: 5"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:layout_marginTop="4dp" />
-
-
-
-        <TextView
-            android:id="@+id/tvPriority"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Độ ưu tiên: 1"
-            android:textSize="14sp"
-            android:textColor="#FF5722"
-            android:layout_marginTop="2dp" />
-
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Trạng thái: OPEN"
-            android:textSize="14sp"
-            android:textColor="#2196F3"
-            android:layout_marginTop="2dp" />
+            android:text="Nhận nhiệm vụ"
+            android:textColor="#FFFFFF"
+            app:backgroundTint="@color/green_active"
+            android:layout_marginTop="14dp"
+            android:paddingHorizontal="22dp"
+            android:paddingVertical="6dp"
+            android:textSize="14sp" />
 
     </LinearLayout>
 

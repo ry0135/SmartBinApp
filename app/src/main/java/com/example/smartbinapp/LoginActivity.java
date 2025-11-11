@@ -4,6 +4,7 @@ import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.ImageView;
@@ -15,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.example.smartbinapp.model.Account;
+import com.example.smartbinapp.model.ApiMessage;
 import com.example.smartbinapp.model.LoginRequest;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
@@ -26,6 +28,10 @@ import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.firebase.messaging.FirebaseMessaging;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -47,10 +53,7 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-
         // 🟢 Kiểm tra session cũ
-        // Check session: Nếu đã đăng nhập trước đó thì bỏ qua màn hình Login
-
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String savedUserId = prefs.getString("userId", null);
 
@@ -65,23 +68,8 @@ public class LoginActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_login);
 
-
         initializeViews();
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
-
-        // Khởi tạo View
-        initializeViews();
-
-        // Khởi tạo Retrofit
-        apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
-
-        // Điền lại username/email gần nhất nếu có
-        String lastUsername = prefs.getString("lastUsername", null);
-        if (lastUsername != null && etUsername != null) {
-            etUsername.setText(lastUsername);
-        }
-
-        // Animation khi mở màn hình
         startEntranceAnimations();
         setupButtonListeners();
 
@@ -200,58 +188,10 @@ public class LoginActivity extends AppCompatActivity {
                     Toast.makeText(LoginActivity.this, "Đăng nhập thành công", Toast.LENGTH_SHORT).show();
 
                     Intent nextIntent = (role != null && role == 4)
-                            ? new Intent(LoginActivity.this, HomeActivityCitizen.class)
+                            ? new Intent(LoginActivity.this, HomeActivity.class)
                             : new Intent(LoginActivity.this, HomeActivity.class);
                     startActivity(nextIntent);
-
-                    Account account = response.body();
-
-                    // Lưu session
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.putString("userId", String.valueOf(account.getAccountId()));
-                    editor.putString("userName", account.getFullName());
-                    editor.putString("email", account.getEmail());
-                    editor.putLong("lastLoginTime", System.currentTimeMillis());
-                    editor.apply();
-
-                    // ✅ Lấy token FCM và gửi lên server
-                    FirebaseMessaging.getInstance().getToken()
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    String token = task.getResult();
-                                    Log.d("FCM", "FCM Token: " + token);
-
-                                    Map<String, String> body = new HashMap<>();
-                                    body.put("token", token);
-
-                                    apiService.updateFcmToken(account.getAccountId(), body)
-                                            .enqueue(new Callback<ApiMessage>() {
-                                                @Override
-                                                public void onResponse(Call<ApiMessage> call,
-                                                                       Response<ApiMessage> response) {
-                                                    if (response.isSuccessful()) {
-                                                        Log.d("FCM", "✅ Token saved to server");
-                                                    } else {
-                                                        Log.e("FCM", "❌ Error saving token: " + response.code());
-                                                    }
-                                                }
-
-                                                @Override
-                                                public void onFailure(Call<ApiMessage> call, Throwable t) {
-                                                    Log.e("FCM", "❌ Failed to save token: " + t.getMessage());
-                                                }
-                                            });
-                                }
-                            });
-
-                    // Chuyển sang HomeActivity
-                    Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
-                    intent.putExtra("firstname", account.getFullName());
-                    startActivity(intent);
-
                     finish();
-
                 } else {
                     showLoginError(response.code());
                 }
@@ -291,7 +231,7 @@ public class LoginActivity extends AppCompatActivity {
                                 saveSession(accountId, fullName, email, role);
                                 Toast.makeText(LoginActivity.this, msg.getMessage(), Toast.LENGTH_SHORT).show();
 
-                                startActivity(new Intent(LoginActivity.this, HomeActivityCitizen.class));
+                                startActivity(new Intent(LoginActivity.this, HomeActivity.class));
                                 finish();
                             }
                         }
@@ -346,6 +286,7 @@ public class LoginActivity extends AppCompatActivity {
         if (responseCode == 401) errorMessage = "Sai tên đăng nhập hoặc mật khẩu";
         else if (responseCode == 500) errorMessage = "Lỗi máy chủ, vui lòng thử lại sau";
         else if (responseCode == 404) errorMessage = "Không tìm thấy tài khoản";
+        else if (responseCode == 403) errorMessage = "Tài khoản đã bị khóa";
         Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
     }
 }
