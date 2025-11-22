@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">54.254.193.147</domain>
+<!--        <domain includeSubdomains="true">13.228.79.109</domain>-->
+        <!-- Domain DuckDNS -->
+        <domain includeSubdomains="true">smartbin-vn.duckdns.org</domain>
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
     </domain-config>

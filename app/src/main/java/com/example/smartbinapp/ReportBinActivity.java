@@ -103,7 +103,16 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
         bottomNavigation = findViewById(R.id.bottom_navigation);
 
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
-        accountId = prefs.getInt("accountId", 1);
+        String userIdStr = prefs.getString("userId", null);
+        if (userIdStr != null) {
+            try {
+                accountId = Integer.parseInt(userIdStr);
+            } catch (NumberFormatException e) {
+                showToast("Lỗi xác thực người dùng");
+                finish();
+                return;
+            }
+        }
         int savedRole = prefs.getInt("role", 0);
         if (savedRole == 4) {
             btnShowTask.setVisibility(View.GONE);

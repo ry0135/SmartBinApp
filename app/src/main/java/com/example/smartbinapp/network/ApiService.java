@@ -100,6 +100,7 @@ public interface ApiService {
             @Part("taskId") RequestBody taskId,
             @Part("lat") RequestBody lat,
             @Part("lng") RequestBody lng,
+            @Part("collectedVolume") RequestBody collectedVolume,
             @Part MultipartBody.Part proofImage
     );
     // API cho chức năng xem thùng rác gần nhất
@@ -149,7 +150,8 @@ public interface ApiService {
     Call<ResponseBody> getUserReportsOldRaw(@Path("userId") String userId);
 
     @GET("api/app/reports/{reportId}")
-    Call<Report> getReportDetails(@Path("reportId") int reportId);
+    Call<ApiResponse<Report>> getReportDetails(@Path("reportId") int reportId);
+
 
     // API cho chức năng chấm điểm/đánh giá
     @POST("api/feedbacks/create")
@@ -184,8 +186,8 @@ public interface ApiService {
     @PUT("api/notifications/{id}/read")
     Call<Void> markNotificationAsRead(@Path("id") int id);
 
-    @GET("api/notifications/unread")
-    Call<List<Notification>> getUnreadNotifications(@Query("userId") String userId);
+    @GET("api/notifications/unreadCount")
+    Call<Integer> getUnreadCount(@Query("receiverId") String receiverId);
 
 
 }

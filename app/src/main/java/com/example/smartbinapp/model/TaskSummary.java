@@ -1,12 +1,16 @@
 package com.example.smartbinapp.model;
 
+import java.time.LocalDateTime;
+import java.util.Date;
+
 public class TaskSummary {
     private String batchId;
     private int assignedTo;
     private String note;
     private int minPriority;
-    private String status;   // NEW FIELD
+    private String status;
 
+    private String createdAt;
     public String getBatchId() { return batchId; }
     public void setBatchId(String batchId) { this.batchId = batchId; }
 
@@ -26,4 +30,12 @@ public class TaskSummary {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
 }

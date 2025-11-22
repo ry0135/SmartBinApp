@@ -489,10 +489,13 @@ public class TaskDetailActivity extends AppCompatActivity {
             intent.putExtra("binCode", task.getBin().getBinCode());
             intent.putExtra("binLat", task.getBin().getLatitude());
             intent.putExtra("binLng", task.getBin().getLongitude());
+            intent.putExtra("currentFill", task.getBin().getCurrentFill());   // % đầy
+            intent.putExtra("capacity", task.getBin().getCapacity());         // dung tích
+
             intent.putExtra("bin_adrress", task.getBin().getStreet() + "," + task.getBin().getProvinceName() + "," +  task.getBin().getProvinceName() );
             completeTaskLauncher.launch(intent);
 
-            startActivity(intent);
+
         });
 
         dialog.show();

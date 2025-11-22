@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.smartbinapp.adapter.ReportImagesAdapter;
 import com.example.smartbinapp.model.Report;
+import com.example.smartbinapp.network.ApiResponse;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
  
@@ -132,26 +133,26 @@ public class ReportDetailActivity extends AppCompatActivity {
 
     private void loadReportDetails() {
         showLoading(true);
-        apiService.getReportDetails(reportId).enqueue(new Callback<Report>() {
+        apiService.getReportDetails(reportId).enqueue(new Callback<ApiResponse<Report>>() {
             @Override
-            public void onResponse(Call<Report> call, Response<Report> response) {
+            public void onResponse(Call<ApiResponse<Report>> call, Response<ApiResponse<Report>> response) {
+
                 showLoading(false);
-                if (response.isSuccessful() && response.body() != null) {
-                    report = response.body();
+
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+
+                    report = response.body().getData();   // <-- LẤY ĐÚNG DỮ LIỆU REPORT
                     displayReportDetails();
+
                 } else {
-                    Toast.makeText(ReportDetailActivity.this,
-                            "Lỗi tải chi tiết báo cáo: " + response.code(),
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ReportDetailActivity.this, "Không tải được báo cáo!", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
-            public void onFailure(Call<Report> call, Throwable t) {
+            public void onFailure(Call<ApiResponse<Report>> call, Throwable t) {
                 showLoading(false);
-                Toast.makeText(ReportDetailActivity.this,
-                        "Lỗi kết nối: " + t.getMessage(),
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(ReportDetailActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -279,16 +280,16 @@ public class ReportDetailActivity extends AppCompatActivity {
 
             switch (status) {
                 case "RECEIVED":
-                    currentStepIndex = 0;
-                    break;
-                case "ASSIGNED":
                     currentStepIndex = 1;
                     break;
-                case "PROCESSING":
+                case "ASSIGNED":
                     currentStepIndex = 2;
                     break;
-                case "DONE":
+                case "PROCESSING":
                     currentStepIndex = 3;
+                    break;
+                case "DONE":
+                    currentStepIndex = 4;
                     break;
                 case "CANCELLED":
                     stepContainer.setVisibility(View.GONE);

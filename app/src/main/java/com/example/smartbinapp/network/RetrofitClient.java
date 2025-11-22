@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
@@ -52,32 +53,37 @@ public class RetrofitClient {
         Gson gson = new GsonBuilder()
                 .registerTypeAdapter(Date.class, (JsonDeserializer<Date>) (json, typeOfT, context) -> {
                     try {
-                        // Trường hợp null
-                        if (json == null || json.isJsonNull()) {
-                            return null;
-                        }
+                        if (json == null || json.isJsonNull()) return null;
 
-                        // Nếu là số (epoch time)
+                        // Nếu là epoch dạng số
                         if (json.getAsJsonPrimitive().isNumber()) {
-                            long timestamp = json.getAsLong();
-                            return new Date(timestamp);
+                            return new Date(json.getAsLong());
                         }
 
-                        // Nếu là chuỗi, thử parse sang long
-                        String value = json.getAsString();
+                        String str = json.getAsString();
+
+                        // Dạng 2025-11-10 14:31:30
                         try {
-                            long timestamp = Long.parseLong(value);
-                            return new Date(timestamp);
-                        } catch (NumberFormatException e) {
-                            // Nếu không phải số thì Gson tự parse theo định dạng ISO
-                            return context.deserialize(json, Date.class);
-                        }
+                            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(str);
+                        } catch (Exception ignored) {}
+
+                        // Dạng ISO 2025-11-10T14:31:30
+                        try {
+                            return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").parse(str);
+                        } catch (Exception ignored) {}
+
+                        // Dạng 2025-11-10
+                        try {
+                            return new SimpleDateFormat("yyyy-MM-dd").parse(str);
+                        } catch (Exception ignored) {}
+
+                        return null;
 
                     } catch (Exception e) {
-                        android.util.Log.e("RetrofitClient", "❌ Lỗi parse Date: " + e.getMessage());
                         return null;
                     }
                 })
+                .setLenient()
                 .create();
 
         return new Retrofit.Builder()

@@ -23,17 +23,17 @@ android {
     buildTypes {
         debug {
 //            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
-            buildConfigField("String", "BASE_URL", "\"http://13.250.55.46:8080/SmartBinWeb/\"")
+            buildConfigField("String", "BASE_URL", "\"https://smartbin-vn.duckdns.org/\"")
 
             buildConfigField("String", "BASE_URL_FALLBACK1", "\"http://localhost:8080/SmartBinWeb_war/\"")
-            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://13.250.55.46:8080/SmartBinWeb/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://13.228.79.109:8080/SmartBinWeb/\"")
         }
         release {
 //            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
-            buildConfigField("String", "BASE_URL", "\"http://13.250.55.46:8080/SmartBinWeb/\"")
+            buildConfigField("String", "BASE_URL", "\"https://smartbin-vn.duckdns.org/\"")
 
             buildConfigField("String", "BASE_URL_FALLBACK1", "\"http://localhost:8080/SmartBinWeb_war/\"")
-            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://13.250.55.46:8080/SmartBinWeb/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://13.228.79.109:8080/SmartBinWeb/\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -54,6 +54,7 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    buildToolsVersion = "35.0.0"
 }
 
 dependencies {

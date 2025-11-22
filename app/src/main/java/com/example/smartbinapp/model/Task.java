@@ -21,6 +21,7 @@ public class Task {
     private String beforeImage;
     private String afterImage;
 
+    private String collectedVolume;
     // Getter & Setter
     public int getTaskID() { return taskID; }
     public void setTaskID(int taskID) { this.taskID = taskID; }
@@ -70,6 +71,14 @@ public class Task {
 
     public String getAfterImage() { return afterImage; }
     public void setAfterImage(String afterImage) { this.afterImage = afterImage; }
+
+    public String getCollectedVolume() {
+        return collectedVolume;
+    }
+
+    public void setCollectedVolume(String collectedVolume) {
+        this.collectedVolume = collectedVolume;
+    }
 
     public Account getAssignedTo() {
         return assignedTo;
