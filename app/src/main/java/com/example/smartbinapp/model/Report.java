@@ -1,10 +1,14 @@
 package com.example.smartbinapp.model;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.util.Date;
 import java.util.List;
 
 public class Report {
     private Integer reportId;
+    @SerializedName(value = "binId", alternate = {"BinID", "binID", "BinId"})
+
     private Integer binID;
     private Integer accountId;
     private String reportType;
@@ -16,9 +20,11 @@ public class Report {
     private Date updatedAt;
     private Date resolvedAt;
     private List<String> imageUrls;
+    @SerializedName("binCode")
     private String binCode;
-    private String binAddress;
 
+    @SerializedName("binAddress")
+    private String binAddress;
     public Report() {
     }
 

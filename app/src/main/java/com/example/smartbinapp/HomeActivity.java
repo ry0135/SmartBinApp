@@ -103,6 +103,7 @@ public class HomeActivity extends AppCompatActivity {
         initializeViews();
         startEntranceAnimations();
         setupClickListeners();
+        // Gọi lần đầu khi mở app
 
         mapView.getMapAsync(map -> {
             vietmapGL = map;
@@ -111,12 +112,11 @@ public class HomeActivity extends AppCompatActivity {
                     this::onStyleLoaded
             );
         });
-
+        wsService.connect();
         // Lắng nghe dữ liệu realtime từ WebSocket
         wsService.setListener(this::onBinUpdateReceived);
 
-        // Gọi lần đầu khi mở app
-        fetchUnreadCount();
+
 
 
     }
@@ -418,18 +418,17 @@ public class HomeActivity extends AppCompatActivity {
         String savedUserId = prefs.getString("userId", "0");
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
-        apiService.getUnreadNotifications(savedUserId).enqueue(new Callback<List<Notification>>() {
+        apiService.getUnreadCount(savedUserId).enqueue(new Callback<Integer>() {
             @Override
-            public void onResponse(Call<List<Notification>> call, Response<List<Notification>> response) {
+            public void onResponse(Call<Integer> call, Response<Integer> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    int unread = response.body().size(); // ✅ Đếm số phần tử
-                    updateNotificationBadge(unread);
+                    updateNotificationBadge(response.body());
                 }
             }
 
             @Override
-            public void onFailure(Call<List<Notification>> call, Throwable t) {
-                // Có thể log hoặc bỏ qua nếu lỗi mạng
+            public void onFailure(Call<Integer> call, Throwable t) {
+
             }
         });
     }
@@ -442,6 +441,8 @@ public class HomeActivity extends AppCompatActivity {
         } else {
             tvBadge.setVisibility(View.GONE);
         }
+        Log.d("BADGE", "Unread = " + unreadCount + ", tvBadge = " + tvBadge);
+
     }
     private void initializeViews() {
         ivnotification = findViewById(R.id.iv_notification);
@@ -451,6 +452,7 @@ public class HomeActivity extends AppCompatActivity {
         fabnearBin = findViewById(R.id.fab_nearbin);
         btnReport = findViewById(R.id.btn_report);
         fabMyLocation = findViewById(R.id.fab_my_location);
+        tvBadge = findViewById(R.id.tv_notification_badge);
 
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         int savedRole = prefs.getInt("role", 0); // Mặc định là 0 nếu chưa có
@@ -494,12 +496,18 @@ public class HomeActivity extends AppCompatActivity {
 
     // ------------------- MapView Lifecycle Overrides -------------------
 
-    @Override protected void onStart() { super.onStart(); mapView.onStart(); wsService.connect(); }
-    @Override protected void onResume() { super.onResume(); mapView.onResume(); }
-    @Override protected void onPause() { super.onPause(); mapView.onPause(); }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mapView.onResume();
+        fetchUnreadCount(); // chạy đúng thời điểm
+    }    @Override protected void onPause() { super.onPause(); mapView.onPause(); }
     @Override protected void onStop() { super.onStop(); mapView.onStop(); wsService.disconnect(); }
-    @Override protected void onDestroy() { super.onDestroy(); mapView.onDestroy(); }
-    @Override protected void onSaveInstanceState(Bundle outState) {
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        wsService.disconnect();
+    }    @Override protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
     }

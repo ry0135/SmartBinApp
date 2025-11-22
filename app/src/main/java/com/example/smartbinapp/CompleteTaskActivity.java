@@ -49,7 +49,7 @@ import retrofit2.Response;
 public class CompleteTaskActivity extends AppCompatActivity {
 
     private int taskId;
-    private double binLat, binLng;
+    private double binLat, binLng, currentFill, capacity;
     private String binCode;
     private Uri photoUri;
     private File tempPhotoFile;
@@ -111,6 +111,8 @@ public class CompleteTaskActivity extends AppCompatActivity {
         binCode = getIntent().getStringExtra("binCode");
         binLat = getIntent().getDoubleExtra("binLat", 0);
         binLng = getIntent().getDoubleExtra("binLng", 0);
+        currentFill = getIntent().getDoubleExtra("currentFill", 0);
+        capacity = getIntent().getDoubleExtra("capacity", 0);
 
         // Update UI with bin data
         if (tvBinCode != null) {
@@ -378,8 +380,12 @@ public class CompleteTaskActivity extends AppCompatActivity {
             RequestBody fileBody = RequestBody.create(tempPhotoFile, MediaType.parse("image/jpeg"));
             MultipartBody.Part imagePart = MultipartBody.Part.createFormData("image", tempPhotoFile.getName(), fileBody);
 
+            double collectedVolume = (currentFill / 100.0) * capacity;
+            Log.d("VOLUME", "Collected: " + collectedVolume);
+
+            RequestBody collectedVolumeBody = RequestBody.create(String.valueOf(collectedVolume), MediaType.parse("text/plain"));
             // Call API
-            Call<ApiMessage> call = apiService.completeTaskWithImage(taskIdBody, latBody, lngBody, imagePart);
+            Call<ApiMessage> call = apiService.completeTaskWithImage(taskIdBody, latBody, lngBody, collectedVolumeBody, imagePart);
 
             call.enqueue(new Callback<ApiMessage>() {
                 @Override
@@ -429,18 +435,22 @@ public class CompleteTaskActivity extends AppCompatActivity {
     }
 
     private void showSuccessAndFinish() {
-        // Hiển thị hiệu ứng thành công
-        showSuccessSection();
-        Toast.makeText(this, "✅ Hoàn thành nhiệm vụ thành công!", Toast.LENGTH_LONG).show();
 
-        new Handler().postDelayed(() -> {
-            Intent resultIntent = new Intent();
-            resultIntent.putExtra("taskId", taskId);
-            resultIntent.putExtra("status", "COMPLETED");
-            setResult(RESULT_OK, resultIntent);
-            finish();
-        }, 2000);
+        // Gửi kết quả NGAY LẬP TỨC
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra("taskId", taskId);
+        resultIntent.putExtra("status", "COMPLETED");
+        setResult(RESULT_OK, resultIntent);
+
+        // Hiển thị animation
+        showSuccessSection();
+        Toast.makeText(this, "✅ Hoàn thành nhiệm vụ!", Toast.LENGTH_LONG).show();
+
+        // Cho animation chạy 2 giây rồi mới finish
+        new Handler().postDelayed(this::finish, 2000);
     }
+
+
 
     @Override
     protected void onDestroy() {
