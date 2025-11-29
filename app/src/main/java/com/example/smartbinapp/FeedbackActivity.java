@@ -315,6 +315,7 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
 
     @Override
     public void onReportClick(Report report) {
+
         selectedReportId = report.getReportId();
         selectedReportDescription = report.getDescription();
         
