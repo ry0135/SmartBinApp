@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -123,6 +124,7 @@ public class TaskDetailActivity extends AppCompatActivity {
     private File tempPhotoFile;
     private Task currentTaskToComplete;
 
+    private boolean isCollecting = false;
     private TaskWebSocketService taskWebSocketService;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -148,7 +150,29 @@ public class TaskDetailActivity extends AppCompatActivity {
                 drawRouteOnly(allTasks);
             }
         });
-        fabStart.setOnClickListener(v -> startCollectingRoute());
+        fabStart.setOnClickListener(v -> {
+            if (!isCollecting) {
+                // BẮT ĐẦU THU GOM
+                // RESET LẠI STEP NAVIGATION
+                currentStepGlobal = 0;
+                startCollectingRoute();
+                fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F44336"))); // 🔴 Đỏ
+
+                fabStart.setText("Dừng thu gom");
+                isCollecting = true;
+
+            } else {
+                // DỪNG THU GOM
+                stopNavigationUpdates();
+                currentStepGlobal = 0;
+
+                fabStart.setText("Bắt đầu thu gom");
+                fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50"))); // 🟢 Xanh
+
+                isCollecting = false;
+                Toast.makeText(this, "Đã dừng thu gom", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         textToSpeech = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -173,10 +197,11 @@ public class TaskDetailActivity extends AppCompatActivity {
             vietmapGL.setStyle(
                     new Style.Builder().fromUri("https://maps.vietmap.vn/api/maps/light/styles.json?apikey=" + VMAP_API_KEY),
                     style -> {
+
                         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                                 == PackageManager.PERMISSION_GRANTED) {
                             enableLocationComponent();
-                            moveToCurrentLocation(); // ✅ tự động zoom tới vị trí hiện tại
+                            moveToCurrentLocation();
                         } else {
                             ActivityCompat.requestPermissions(
                                     this,
@@ -184,7 +209,13 @@ public class TaskDetailActivity extends AppCompatActivity {
                                     LOCATION_PERMISSION_REQUEST_CODE
                             );
                         }
+
                         loadTasksFromApi();
+
+                        // ✅ Map + Style đã sẵn sàng, gọi thẳng loadSavedRoute
+//                        Log.d("ROUTE_LOAD", "Style loaded → loading saved route");
+//                        loadSavedRoute();
+//                        Log.d("ROUTE_LOAD", "points loaded = " + polylinePoints.size());
                     }
             );
         });
@@ -275,21 +306,36 @@ public class TaskDetailActivity extends AppCompatActivity {
             }
         });
     }
-
+    public interface RouteCallback {
+        void onRouteReady();
+    }
     // ====== DRAW ROUTE ONLY ======
     @SuppressWarnings({"MissingPermission"})
-    private void drawRouteOnly(List<Task> tasks) {
-        if (tasks == null || tasks.isEmpty()) {
-            Toast.makeText(this, "Không có điểm để tối ưu", Toast.LENGTH_SHORT).show();
+    private void drawRouteOnly(List<Task> tasks,RouteCallback callback) {
+
+        //  LỌC TASK CHƯA HOÀN THÀNH
+        List<Task> pendingTasks = new ArrayList<>();
+        for (Task t : tasks) {
+            if (!"COMPLETED".equalsIgnoreCase(t.getStatus())) {
+                pendingTasks.add(t);
+            }
+        }
+
+        //  NẾU KHÔNG CÓ TASK NÀO ĐỂ TỐI ƯU
+        if (pendingTasks.isEmpty()) {
+            Toast.makeText(this, "Không có thùng rác đang cần xử lý!", Toast.LENGTH_SHORT).show();
             return;
         }
+
         LocationComponent lc = vietmapGL.getLocationComponent();
         Location myLocation = (lc != null) ? lc.getLastKnownLocation() : null;
+
         if (myLocation == null) {
             Toast.makeText(this, "Không lấy được vị trí hiện tại", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // TẠO URL TỐI ƯU CHỈ CHO pendingTasks
         StringBuilder url = new StringBuilder("https://maps.vietmap.vn/api/route")
                 .append("?api-version=1.1")
                 .append("&apikey=").append(VMAP_API_KEY)
@@ -297,40 +343,55 @@ public class TaskDetailActivity extends AppCompatActivity {
                 .append("&points_encoded=false")
                 .append("&instructions=true");
 
+        //  Điểm bắt đầu = vị trí hiện tại
         url.append("&point=").append(myLocation.getLatitude()).append(",").append(myLocation.getLongitude());
-        for (Task t : tasks) {
+
+        //  Thêm các thùng rác cần xử lý
+        for (Task t : pendingTasks) {
             url.append("&point=").append(t.getBin().getLatitude()).append(",").append(t.getBin().getLongitude());
         }
 
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder().url(url.toString()).build();
         client.newCall(request).enqueue(new okhttp3.Callback() {
-            @Override public void onFailure(@NonNull okhttp3.Call call, @NonNull IOException e) {
-                runOnUiThread(() -> Toast.makeText(TaskDetailActivity.this, "API lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+
+            @Override
+            public void onFailure(@NonNull okhttp3.Call call, @NonNull IOException e) {
+                runOnUiThread(() ->
+                        Toast.makeText(TaskDetailActivity.this, "API lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                );
             }
-            @Override public void onResponse(@NonNull okhttp3.Call call, @NonNull Response response) throws IOException {
+
+            @Override
+            public void onResponse(@NonNull okhttp3.Call call, @NonNull Response response) throws IOException {
                 if (!response.isSuccessful() || response.body() == null) {
-                    runOnUiThread(() -> Toast.makeText(TaskDetailActivity.this, "API trả lỗi: " + response.code(), Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() ->
+                            Toast.makeText(TaskDetailActivity.this, "API trả lỗi: " + response.code(), Toast.LENGTH_SHORT).show()
+                    );
                     return;
                 }
+
                 try {
                     JSONObject json = new JSONObject(response.body().string());
                     JSONArray paths = json.optJSONArray("paths");
+
                     if (paths == null || paths.length() == 0) {
-                        runOnUiThread(() -> Toast.makeText(TaskDetailActivity.this, "Không tìm thấy tuyến phù hợp", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() ->
+                                Toast.makeText(TaskDetailActivity.this, "Không tìm thấy tuyến phù hợp", Toast.LENGTH_SHORT).show()
+                        );
                         return;
                     }
+
                     JSONObject path = paths.getJSONObject(0);
 
-                    // Polyline points
                     JSONArray coords = path.getJSONObject("points").getJSONArray("coordinates");
                     polylinePoints.clear();
+
                     for (int i = 0; i < coords.length(); i++) {
-                        JSONArray c = coords.getJSONArray(i); // [lng, lat]
+                        JSONArray c = coords.getJSONArray(i);
                         polylinePoints.add(new LatLng(c.getDouble(1), c.getDouble(0)));
                     }
 
-                    // Instructions
                     routeSteps.clear();
                     JSONArray instructions = path.optJSONArray("instructions");
                     if (instructions != null) {
@@ -338,23 +399,102 @@ public class TaskDetailActivity extends AppCompatActivity {
                             routeSteps.add(instructions.getJSONObject(i));
                         }
                     }
+
                     currentStepGlobal = 0;
 
                     runOnUiThread(() -> {
                         if (currentRoute != null) vietmapGL.removeAnnotation(currentRoute);
-                        currentRoute = vietmapGL.addPolyline(new PolylineOptions().addAll(polylinePoints).color(Color.BLUE).width(5f));
+
+                        currentRoute = vietmapGL.addPolyline(new PolylineOptions()
+                                .addAll(polylinePoints)
+                                .color(Color.BLUE)
+                                .width(5f));
+
                         if (!polylinePoints.isEmpty()) {
-                            vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(polylinePoints.get(0), 15f));
+                            vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                                    polylinePoints.get(0), 15f
+                            ));
                         }
-                        Toast.makeText(TaskDetailActivity.this, "Đã vẽ tuyến tối ưu", Toast.LENGTH_SHORT).show();
+                        // LƯU ROUTE Ở ĐÂY – SAU KHI ĐÃ CÓ DATA
+                        saveRouteToLocal(polylinePoints, routeSteps);
+
                     });
 
                 } catch (JSONException e) {
-                    runOnUiThread(() -> Toast.makeText(TaskDetailActivity.this, "Parse JSON lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() ->
+                            Toast.makeText(TaskDetailActivity.this, "Parse JSON lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                    );
                 }
             }
         });
     }
+    private void drawRouteOnly(List<Task> tasks) {
+        drawRouteOnly(tasks, null);
+    }
+    private void saveRouteToLocal(List<LatLng> points, List<JSONObject> steps) {
+        try {
+            JSONArray pointsArr = new JSONArray();
+            for (LatLng p : points) {
+                JSONArray item = new JSONArray();
+                item.put(p.getLatitude());
+                item.put(p.getLongitude());
+                pointsArr.put(item);
+            }
+
+            JSONArray stepsArr = new JSONArray();
+            for (JSONObject s : steps) {
+                stepsArr.put(s);
+            }
+
+            getSharedPreferences("ROUTE_CACHE", MODE_PRIVATE)
+                    .edit()
+                    .putString("points", pointsArr.toString())
+                    .putString("steps", stepsArr.toString())
+                    .apply();
+
+        } catch (Exception e) {
+            Log.e("ROUTE_SAVE", "Error: " + e.getMessage());
+        }
+    }
+
+    private void loadSavedRoute() {
+        try {
+            SharedPreferences prefs = getSharedPreferences("ROUTE_CACHE", MODE_PRIVATE);
+            String pointsStr = prefs.getString("points", null);
+            String stepsStr = prefs.getString("steps", null);
+
+            if (pointsStr == null || stepsStr == null) return;
+
+            JSONArray arr = new JSONArray(pointsStr);
+            polylinePoints.clear();
+
+            for (int i = 0; i < arr.length(); i++) {
+                JSONArray item = arr.getJSONArray(i);
+                double lat = item.getDouble(0);
+                double lng = item.getDouble(1);
+                polylinePoints.add(new LatLng(lat, lng));
+            }
+
+            JSONArray insArr = new JSONArray(stepsStr);
+            routeSteps.clear();
+            for (int i = 0; i < insArr.length(); i++) {
+                routeSteps.add(insArr.getJSONObject(i));
+            }
+
+            // vẽ polyline ra lại
+            runOnUiThread(() -> {
+                if (currentRoute != null) vietmapGL.removeAnnotation(currentRoute);
+                currentRoute = vietmapGL.addPolyline(new PolylineOptions()
+                        .addAll(polylinePoints)
+                        .color(Color.BLUE)
+                        .width(5f));
+            });
+
+        } catch (Exception e) {
+            Log.e("ROUTE_LOAD", "Error: " + e.getMessage());
+        }
+    }
+
 
     // ====== START / FOLLOW ROUTE WITH VOICE ======
     private void startCollectingRoute() {
@@ -509,33 +649,75 @@ public class TaskDetailActivity extends AppCompatActivity {
                     int taskId = result.getData().getIntExtra("taskId", -1);
 
                     if ("COMPLETED".equals(status)) {
+
                         for (Task t : allTasks) {
                             if (t.getTaskID() == taskId) {
                                 t.setStatus("COMPLETED");
                                 break;
                             }
                         }
-                        redrawMarkers(); // 🔄 Cập nhật màu xanh ngay
-                        Toast.makeText(this, "Nhiệm vụ #" + taskId + " đã hoàn thành!", Toast.LENGTH_SHORT).show();
+
+                        List<Task> pending = new ArrayList<>();
+                        for (Task t : allTasks) {
+                            if (!"COMPLETED".equalsIgnoreCase(t.getStatus())) {
+                                pending.add(t);
+                            }
+                        }
+
+                        polylinePoints.clear();
+                        routeSteps.clear();
+                        if (currentRoute != null) vietmapGL.removeAnnotation(currentRoute);
+                        getSharedPreferences("ROUTE_CACHE", MODE_PRIVATE).edit().clear().apply();
+
+                        redrawMarkers();
+
+                        if (!pending.isEmpty()) {
+
+                            drawRouteOnly(pending, () -> {
+                                // ⭐ CHỈ CHẠY KHI ROUTE VẼ XONG
+                                currentStepGlobal = 0;
+                                startCollectingRoute();
+
+                                ExtendedFloatingActionButton fabStart = findViewById(R.id.btnStartCollect);
+                                fabStart.setText("Dừng thu gom");
+                                fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F44336")));
+                                isCollecting = true;
+                            });
+
+                        } else {
+                            Toast.makeText(this, "Tất cả thùng đã hoàn thành!", Toast.LENGTH_SHORT).show();
+                        }
+
+                        Toast.makeText(this, "Nhiệm vụ đã hoàn thành!", Toast.LENGTH_SHORT).show();
+
                     }
                 }
             });
 
     private void redrawMarkers() {
-        vietmapGL.clear();
+        // ❌ vietmapGL.clear();  // Đừng xóa polyline
+        // Thay thế bằng:
+        // Xóa tất cả marker nhưng giữ polyline
+        for (Marker m : markerTaskMap.keySet()) {
+            vietmapGL.removeAnnotation(m);
+        }
         markerTaskMap.clear();
+
+        // Vẽ lại marker
         for (Task task : allTasks) {
             LatLng pos = new LatLng(task.getBin().getLatitude(), task.getBin().getLongitude());
             int iconRes = getStatusIcon(task);
+
             Marker marker = vietmapGL.addMarker(new MarkerOptions()
                     .position(pos)
-                    .title("Bin " + task.getBin().getBinCode() + " (" + task.getTaskType() + ")")
+                    .title("Bin " + task.getBin().getBinCode())
                     .snippet("Trạng thái: " + task.getStatus())
-                    .icon(IconFactory.getInstance(this).fromBitmap(getBitmapFromVectorDrawable(iconRes))));
+                    .icon(IconFactory.getInstance(this)
+                            .fromBitmap(getBitmapFromVectorDrawable(iconRes))));
+
             markerTaskMap.put(marker, task);
         }
     }
-
 
 
     private File createImageFile() throws IOException {

@@ -4,6 +4,7 @@
 <!--        <domain includeSubdomains="true">13.228.79.109</domain>-->
         <!-- Domain DuckDNS -->
         <domain includeSubdomains="true">smartbin-vn.duckdns.org</domain>
+
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
     </domain-config>
