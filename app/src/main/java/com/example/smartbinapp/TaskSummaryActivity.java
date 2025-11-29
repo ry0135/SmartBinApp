@@ -108,6 +108,7 @@ public class TaskSummaryActivity extends AppCompatActivity {
         intent.putExtra("taskName", summary.getNote());
         intent.putExtra("priority", summary.getMinPriority());
         intent.putExtra("status", summary.getStatus());
+//        intent.putExtra("status", summary.ge());
         startActivity(intent);
     }
 

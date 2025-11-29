@@ -76,7 +76,7 @@ public class HomeActivity extends AppCompatActivity {
     private FusedLocationProviderClient fusedLocationClient;
 
     // Cache icons and markers
-    private Bitmap iconRed, iconYellow, iconGreen, iconDefault; // 🟢 Thêm iconDefault
+    private Bitmap iconRed, iconYellow, iconGreen, iconGrey, iconDefault; // 🟢 Thêm iconDefault
     private final Map<Integer, Marker> markerMap = new HashMap<>();
 
     // Realtime WebSocket
@@ -115,9 +115,6 @@ public class HomeActivity extends AppCompatActivity {
         wsService.connect();
         // Lắng nghe dữ liệu realtime từ WebSocket
         wsService.setListener(this::onBinUpdateReceived);
-
-
-
 
     }
 
@@ -231,8 +228,7 @@ public class HomeActivity extends AppCompatActivity {
         if (vietmapGL == null) return;
 
         int percent = (int) bin.getCurrentFill() ;
-        Icon icon = getSafeBinIcon(percent);
-
+        Icon icon = getSafeBinIcon(bin);
         String title = bin.getBinCode() + " - " + percent + "% đầy";
         String snippet = isRealtimeUpdate ?
                 "Cập nhật lúc: " + System.currentTimeMillis() :
@@ -272,6 +268,7 @@ public class HomeActivity extends AppCompatActivity {
         if (iconRed == null) iconRed = getBitmapFromVectorDrawable(R.drawable.ic_bin_red);
         if (iconYellow == null) iconYellow = getBitmapFromVectorDrawable(R.drawable.ic_bin_yellow);
         if (iconGreen == null) iconGreen = getBitmapFromVectorDrawable(R.drawable.ic_bin_green);
+        if (iconGrey == null) iconGrey = getBitmapFromVectorDrawable(R.drawable.ic_bin_grey);
 
         // 🟢 Khởi tạo icon dự phòng (đảm bảo phải có tệp drawable này)
         // Nếu không có ic_bin_default, bạn có thể dùng một icon vector khác chắc chắn có.
@@ -282,24 +279,28 @@ public class HomeActivity extends AppCompatActivity {
      * Trả về Icon (Vietmap) đã được kiểm tra, sử dụng icon mặc định nếu icon mong muốn bị lỗi.
      * Đã sửa lỗi chữ ký hàm (signature) cho phiên bản SDK chỉ hỗ trợ 2 tham số.
      */
-    private Icon getSafeBinIcon(int percent) {
+    private Icon getSafeBinIcon(Bin bin) {
         Bitmap targetBitmap;
-        if (percent >= 80) targetBitmap = iconRed;
-        else if (percent >= 40) targetBitmap = iconYellow;
-        else targetBitmap = iconGreen;
 
+        // 🔥 Ưu tiên: BIN OFFLINE hoặc ERROR → icon GREY
+        if (bin.getStatus() == 2) {
+            targetBitmap = iconGrey;   // <-- icon offline
+        }
+        else {
+            // Bình thường: chọn theo % đầy
+            int percent = (int) bin.getCurrentFill();
+
+            if (percent >= 80) targetBitmap = iconRed;
+            else if (percent >= 40) targetBitmap = iconYellow;
+            else targetBitmap = iconGreen;
+        }
+
+        // Fallback nếu null
         if (targetBitmap == null) {
             targetBitmap = iconDefault;
         }
 
-        if (targetBitmap == null) {
-            return IconFactory.getInstance(this).defaultMarker();
-        }
-
-        // 🚨 BUỘC TẠO ICON MỚI KHÔNG DÙNG CACHE: fromBitmap
-        Icon icon = IconFactory.getInstance(this).fromBitmap(targetBitmap);
-
-        return icon;
+        return IconFactory.getInstance(this).fromBitmap(targetBitmap);
     }
     /**
      * Chuyển Vector Drawable sang Bitmap
