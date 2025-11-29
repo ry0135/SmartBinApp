@@ -25,8 +25,9 @@ android {
 //            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
             buildConfigField("String", "BASE_URL", "\"https://smartbin-vn.duckdns.org/\"")
 
-            buildConfigField("String", "BASE_URL_FALLBACK1", "\"http://localhost:8080/SmartBinWeb_war/\"")
-            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://13.228.79.109:8080/SmartBinWeb/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK1", "\"https://13.228.79.109:8080/SmartBinWeb_war/\"")
+            buildConfigField("String", "BASE_URL_FALLBACK2", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
+
         }
         release {
 //            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/SmartBinWeb_war/\"")
