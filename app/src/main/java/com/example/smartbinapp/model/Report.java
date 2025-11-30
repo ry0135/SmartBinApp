@@ -20,12 +20,31 @@ public class Report {
     private Date updatedAt;
     private Date resolvedAt;
     private List<String> imageUrls;
+
+    private boolean reviewed;
+
     @SerializedName("binCode")
     private String binCode;
 
     @SerializedName("binAddress")
     private String binAddress;
     public Report() {
+    }
+
+    public Integer getBinID() {
+        return binID;
+    }
+
+    public void setBinID(Integer binID) {
+        this.binID = binID;
+    }
+
+    public boolean isReviewed() {
+        return reviewed;
+    }
+
+    public void setReviewed(boolean reviewed) {
+        this.reviewed = reviewed;
     }
 
     // Getters và Setters

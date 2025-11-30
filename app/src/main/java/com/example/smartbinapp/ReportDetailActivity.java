@@ -251,15 +251,37 @@ public class ReportDetailActivity extends AppCompatActivity {
         updateStepView();
 
         // Show rate button if report is done
+        // Kiểm tra trạng thái báo cáo là DONE
         if (report.getStatus() != null && "DONE".equals(report.getStatus())) {
             btnRate.setVisibility(View.VISIBLE);
-            btnRate.setOnClickListener(v -> {
-                Intent intent = new Intent(ReportDetailActivity.this, FeedbackActivity.class);
-                intent.putExtra("report_id", reportId);
-                intent.putExtra("bin_id", report.getBinId() != null ? report.getBinId() : -1);
-                startActivity(intent);
-            });
+
+            // Kiểm tra xem đã đánh giá hay chưa (biến isReviewed từ API trả về)
+            if (report.isReviewed()) {
+                // TRƯỜNG HỢP 1: Đã hoàn thành và ĐÃ ĐÁNH GIÁ
+                btnRate.setText("Đã đánh giá");       // Đổi tên nút
+                btnRate.setEnabled(false);            // Vô hiệu hóa nút (không cho bấm)
+
+                // (Tùy chọn) Đổi màu nút sang xám để người dùng biết là không bấm được
+                // btnRate.setBackgroundTintList(ColorStateList.valueOf(Color.GRAY));
+                // Hoặc set background resource khác: btnRate.setBackgroundResource(R.drawable.btn_disabled);
+                btnRate.setAlpha(0.5f); // Cách nhanh nhất để làm mờ nút đi
+            } else {
+                // TRƯỜNG HỢP 2: Đã hoàn thành nhưng CHƯA ĐÁNH GIÁ
+                btnRate.setText("Đánh giá dịch vụ");  // Đảm bảo tên nút đúng
+                btnRate.setEnabled(true);             // Cho phép bấm
+                btnRate.setAlpha(1.0f);               // Đậm lên lại
+
+                btnRate.setOnClickListener(v -> {
+                    Intent intent = new Intent(ReportDetailActivity.this, FeedbackActivity.class);
+                    intent.putExtra("report_id", reportId);
+                    // Kiểm tra null an toàn hơn cho binId
+                    intent.putExtra("bin_id", report.getBinId() != null ? report.getBinId() : -1);
+                    startActivity(intent);
+                });
+            }
+
         } else {
+            // TRƯỜNG HỢP 3: Chưa hoàn thành (PENDING, PROCESSING...)
             btnRate.setVisibility(View.GONE);
         }
     }
