@@ -4,6 +4,7 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <!-- Tiêu đề -->
     <TextView
         android:id="@+id/tvBinTitle"
         android:layout_width="match_parent"
@@ -13,13 +14,25 @@
         android:textStyle="bold"
         android:paddingBottom="8dp"/>
 
+    <!-- Trạng thái -->
     <TextView
         android:id="@+id/tvBinStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Trạng thái: Đang chờ"
-        android:paddingBottom="16dp"/>
+        android:paddingBottom="12dp"/>
 
+    <!-- Ảnh minh chứng (ẩn khi chưa hoàn thành) -->
+    <ImageView
+        android:id="@+id/imgProof"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:scaleType="centerCrop"
+        android:background="#EEEEEE"
+        android:visibility="gone"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Nút hoàn thành -->
     <Button
         android:id="@+id/btnCompleteBin"
         android:layout_width="match_parent"
@@ -27,4 +40,13 @@
         android:text="Hoàn thành thùng này"
         android:backgroundTint="@android:color/holo_green_dark"
         android:textColor="@android:color/white"/>
+
+    <Button
+        android:id="@+id/btnReportThisBin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Báo cáo sự cố thùng"
+        android:backgroundTint="@color/error_red"
+        android:textColor="@android:color/white"
+        android:drawableLeft="@drawable/ic_warning" />
 </LinearLayout>

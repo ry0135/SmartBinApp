@@ -189,5 +189,18 @@ public interface ApiService {
     @GET("api/notifications/unreadCount")
     Call<Integer> getUnreadCount(@Query("receiverId") String receiverId);
 
+    @FormUrlEncoded
+    @POST("api/tasks/batch/report-issue")
+    Call<ApiMessage> reportBatchIssue(
+            @Field("workerId") int workerId,
+            @Field("batchId") String batchId,
+            @Field("reason") String reason
+    );
+
+    @PUT("api/tasks/{taskId}/report-issue")
+    Call<ApiMessage> reportTaskIssue(
+            @Path("taskId") int taskId,
+            @Query("reason") String reason
+    );
 
 }

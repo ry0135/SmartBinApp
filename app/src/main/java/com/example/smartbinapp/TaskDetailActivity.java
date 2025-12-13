@@ -1,6 +1,7 @@
 package com.example.smartbinapp;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -8,6 +9,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.net.Uri;
@@ -17,23 +19,34 @@ import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import vn.vietmap.vietmapsdk.annotations.Icon;
+import vn.vietmap.vietmapsdk.annotations.IconFactory;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.appcompat.app.AppCompatActivity;
-
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import com.bumptech.glide.Glide;
 import com.example.smartbinapp.model.ApiMessage;
+import com.example.smartbinapp.model.Bin;
 import com.example.smartbinapp.model.Task;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
+import com.example.smartbinapp.service.BinWebSocketService;
 import com.example.smartbinapp.service.TaskWebSocketService;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -58,13 +71,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-import retrofit2.Call;
-import retrofit2.Callback;
+
 
 import vn.vietmap.vietmapsdk.Vietmap;
 import vn.vietmap.vietmapsdk.annotations.IconFactory;
@@ -91,6 +100,15 @@ public class TaskDetailActivity extends AppCompatActivity {
     private static final float STEP_TRIGGER_METERS = 30f; // đổi 5–10m để test đứng yên
     private static final String VMAP_API_KEY = "ecdbd35460b2d399e18592e6264186757aaaddd8755b774c"; // TODO: thay bằng API key Vietmap thật
     private static final String FILE_PROVIDER_AUTH = BuildConfig.APPLICATION_ID + ".provider"; // TODO: khai báo provider trong Manifest
+
+    // Realtime WebSocket
+    private final BinWebSocketService wsService = new BinWebSocketService();
+
+    // Cache icons and markers (GIỐNG HOME)
+    private Bitmap iconRed, iconYellow, iconGreen, iconGrey, iconDefault;
+
+    // Map để lưu dữ liệu bin cho mỗi marker
+    private final Map<Marker, Task> binDataMap = new HashMap<>();
 
     // ====== MAP ======
     private MapView mapView;
@@ -131,6 +149,9 @@ public class TaskDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         Vietmap.getInstance(this);
         setContentView(R.layout.activity_task_detail);
+        initIcons();
+        wsService.connect();
+        wsService.setListener(this::onBinUpdateReceived);
 
         mapView = findViewById(R.id.mapView);
         mapView.onCreate(savedInstanceState);
@@ -142,7 +163,8 @@ public class TaskDetailActivity extends AppCompatActivity {
 
         ExtendedFloatingActionButton fabOptimize = findViewById(R.id.btnOptimize);
         ExtendedFloatingActionButton fabStart = findViewById(R.id.btnStartCollect);
-
+        ExtendedFloatingActionButton fabReportBatch = findViewById(R.id.btnReportBatch);
+        fabReportBatch.setOnClickListener(v -> showReportDialog(true, null));
         fabOptimize.setOnClickListener(v -> {
             if (allTasks.isEmpty()) {
                 Toast.makeText(this, "Không có điểm để tối ưu", Toast.LENGTH_SHORT).show();
@@ -151,26 +173,62 @@ public class TaskDetailActivity extends AppCompatActivity {
             }
         });
         fabStart.setOnClickListener(v -> {
-            if (!isCollecting) {
-                // BẮT ĐẦU THU GOM
-                // RESET LẠI STEP NAVIGATION
-                currentStepGlobal = 0;
-                startCollectingRoute();
-                fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F44336"))); // 🔴 Đỏ
 
-                fabStart.setText("Dừng thu gom");
-                isCollecting = true;
+            // ⭐ Nếu có task OPEN → không cho thu gom
+            boolean hasOpenTask = false;
+            for (Task t : allTasks) {
+                if ("OPEN".equalsIgnoreCase(t.getStatus())) {
+                    hasOpenTask = true;
+                    break;
+                }
+            }
+
+            if (hasOpenTask) {
+                Toast.makeText(this, "Bạn cần nhận nhiệm vụ trước!", Toast.LENGTH_SHORT).show();
+                return;  // ❌ không cho chạy tiếp
+            }
+
+            // ⭐ Xử lý thu gom
+            if (!isCollecting) {
+                currentStepGlobal = 0;
+
+                // ✅ Kiểm tra kết quả trước khi cập nhật UI
+                boolean success = startCollectingRoute();
+
+                if (success) {
+                    // ✅ Chỉ cập nhật UI khi thành công
+                    fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F44336")));
+                    fabStart.setText("Dừng thu gom");
+                    isCollecting = true;
+                }
 
             } else {
-                // DỪNG THU GOM
+                // ✅ Dừng navigation
                 stopNavigationUpdates();
                 currentStepGlobal = 0;
 
-                fabStart.setText("Bắt đầu thu gom");
-                fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50"))); // 🟢 Xanh
+                // ✅ XÓA TUYẾN ĐƯỜNG TỐI ƯU
+                if (currentRoute != null) {
+                    vietmapGL.removeAnnotation(currentRoute);
+                    currentRoute = null;
+                }
 
+                // ✅ XÓA DỮ LIỆU ROUTE
+                polylinePoints.clear();
+                routeSteps.clear();
+
+                // ✅ XÓA CACHE (nếu có lưu)
+                getSharedPreferences("ROUTE_CACHE", MODE_PRIVATE)
+                        .edit()
+                        .clear()
+                        .apply();
+
+                // ✅ Cập nhật UI
+                fabStart.setText("Bắt đầu thu gom");
+                fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
                 isCollecting = false;
-                Toast.makeText(this, "Đã dừng thu gom", Toast.LENGTH_SHORT).show();
+
+                Toast.makeText(this, "Đã dừng thu gom ", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -222,6 +280,288 @@ public class TaskDetailActivity extends AppCompatActivity {
 
     }
 
+    private void showReportDialog(boolean isBatchReport, Task task) {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.layout_dialog_report_issue);
+
+        // Ép dialog rộng gần full màn hình
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            dialog.getWindow().setBackgroundDrawable(
+                    new ColorDrawable(Color.TRANSPARENT)
+            );
+        }
+
+        EditText edtReason = dialog.findViewById(R.id.edtReason);
+        Button btnSubmit = dialog.findViewById(R.id.btnSubmitReason);
+
+        btnSubmit.setOnClickListener(v -> {
+            String reason = edtReason.getText().toString().trim();
+            if (reason.isEmpty()) {
+                Toast.makeText(this, "Vui lòng nhập lý do!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            dialog.dismiss();
+
+            if (isBatchReport) {
+                reportWholeBatch(reason);
+            } else {
+                reportSingleBin(task, reason);
+            }
+        });
+
+        dialog.show();
+    }
+    private void reportWholeBatch(String reason) {
+        ApiService api = RetrofitClient.getRetrofitInstance().create(ApiService.class);
+
+        api.reportBatchIssue(workerId, batchId, reason)
+                .enqueue(new Callback<ApiMessage>() {
+                    @Override
+                    public void onResponse(Call<ApiMessage> call,
+                                           Response<ApiMessage> response) {
+                        if (response.isSuccessful()) {
+                            Toast.makeText(TaskDetailActivity.this,
+                                    "Đã báo cáo — Manager sẽ xử lý!",
+                                    Toast.LENGTH_LONG).show();
+
+                            for (Task t : allTasks) {
+                                t.setStatus("ISSUE");
+                            }
+
+                            stopNavigationUpdates();
+                            redrawMarkers();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiMessage> call, Throwable t) {
+                        Toast.makeText(TaskDetailActivity.this,
+                                "Lỗi API: " + t.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void reportSingleBin(Task task, String reason) {
+        ApiService api = RetrofitClient.getRetrofitInstance().create(ApiService.class);
+
+        api.reportTaskIssue(task.getTaskID(), reason)
+                .enqueue(new Callback<ApiMessage>() {
+                    @Override
+                    public void onResponse(Call<ApiMessage> call,
+                                           Response<ApiMessage> response) {
+                        if (response.isSuccessful()) {
+                            Toast.makeText(TaskDetailActivity.this,
+                                    "Bạn đã báo cáo thùng " + task.getBin().getBinCode(),
+                                    Toast.LENGTH_SHORT).show();
+
+                            task.setStatus("ISSUE");
+                            updateMarkerForTask(task);
+
+                            // Rebuild route không có thùng ISSUE/COMPLETED
+                            List<Task> pending = new ArrayList<>();
+                            for (Task t : allTasks) {
+                                if (!"ISSUE".equalsIgnoreCase(t.getStatus())
+                                        && !"COMPLETED".equalsIgnoreCase(t.getStatus())) {
+                                    pending.add(t);
+                                }
+                            }
+
+                            drawRouteOnly(pending);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiMessage> call, Throwable t) {
+                        Toast.makeText(TaskDetailActivity.this,
+                                "Lỗi API: " + t.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+
+    private void onBinUpdateReceived(Bin updatedBin) {
+        runOnUiThread(() -> {
+            Log.d(TAG, "🛰 Received bin update: " + updatedBin.getBinCode() + " | binId=" + updatedBin.getBinId());
+
+            // Tìm task có bin này
+            for (Task task : allTasks) {
+                if (task.getBin().getBinId() == updatedBin.getBinId()) {
+                    // Cập nhật dữ liệu bin trong task
+                    task.getBin().setCurrentFill(updatedBin.getCurrentFill());
+                    task.getBin().setStatus(updatedBin.getStatus());
+
+                    // Cập nhật marker
+                    updateMarkerForTask(task);
+                    break;
+                }
+            }
+        });
+    }
+    private void initIcons() {
+        if (iconRed == null) iconRed = getBitmapFromVectorDrawable(R.drawable.ic_bin_red);
+        if (iconYellow == null) iconYellow = getBitmapFromVectorDrawable(R.drawable.ic_bin_yellow);
+        if (iconGreen == null) iconGreen = getBitmapFromVectorDrawable(R.drawable.ic_bin_green);
+        if (iconGrey == null) iconGrey = getBitmapFromVectorDrawable(R.drawable.ic_bin_grey);
+
+        // Fallback khi các icon trên bị null
+        if (iconDefault == null) iconDefault = getBitmapFromVectorDrawable(R.drawable.ic_bin_green);
+    }
+
+    private Icon getSafeBinIcon(Task task) {
+        // Nếu vì lý do nào đó icon chưa init → init lại
+        if (iconRed == null || iconYellow == null || iconGreen == null
+                || iconGrey == null || iconDefault == null) {
+            initIcons();
+        }
+
+        Bitmap targetBitmap;
+
+       if (task.getBin() != null && task.getBin().getStatus() == 2) {
+            targetBitmap = iconGrey;
+        }
+        // 3. Chọn theo % đầy
+        else {
+            int percent = (int) (task.getBin() != null ? task.getBin().getCurrentFill() : 0);
+
+            if (percent >= 80)       targetBitmap = iconRed;
+            else if (percent >= 40)  targetBitmap = iconYellow;
+            else                     targetBitmap = iconGreen;
+        }
+
+        // Fallback cuối cùng
+        if (targetBitmap == null) {
+            // nếu vẫn null thì dùng iconDefault, nếu iconDefault cũng null
+            // thì tạo 1 bitmap 1x1 để tránh app crash
+            if (iconDefault != null) {
+                targetBitmap = iconDefault;
+            } else {
+                targetBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+                targetBitmap.eraseColor(Color.TRANSPARENT);
+            }
+        }
+
+        return IconFactory.getInstance(TaskDetailActivity.this)
+                .fromBitmap(targetBitmap);
+    }
+
+
+    /**
+     * Chuyển Vector Drawable sang Bitmap (GIỐNG HOME)
+     */
+
+
+    @Nullable
+    private Bitmap getBitmapFromVectorDrawable(int drawableId) {
+        Drawable drawable = ContextCompat.getDrawable(this, drawableId);
+        if (drawable == null) {
+            Log.e(TAG, "Lỗi: Không tìm thấy Drawable ID: " + drawableId);
+            return null;
+        }
+
+        drawable = drawable.mutate();
+
+        try {
+            int targetWidthPx = dpToPx(30);
+            int targetHeightPx = dpToPx(30);
+            int densityDpi = getResources().getDisplayMetrics().densityDpi;
+
+            Bitmap bitmap = Bitmap.createBitmap(
+                    targetWidthPx,
+                    targetHeightPx,
+                    Bitmap.Config.ARGB_8888
+            );
+
+            bitmap.setDensity(densityDpi);
+
+            Canvas canvas = new Canvas(bitmap);
+            drawable.setBounds(0, 0, targetWidthPx, targetHeightPx);
+            drawable.draw(canvas);
+
+            return bitmap;
+        } catch (Exception e) {
+            Log.e(TAG, "Lỗi nghiêm trọng khi tạo Bitmap từ Vector Drawable.", e);
+            return null;
+        }
+    }
+
+    private int dpToPx(int dp) {
+        return (int) (dp * getResources().getDisplayMetrics().density);
+    }
+    private void addMarkerForTask(Task task) {
+        if (vietmapGL == null) return;
+
+        LatLng pos = new LatLng(task.getBin().getLatitude(), task.getBin().getLongitude());
+        int percent = (int) task.getBin().getCurrentFill();
+
+        // ✅ Sử dụng icon mới
+        Icon icon = getSafeBinIcon(task);
+
+        String title = task.getBin().getBinCode() + " - " + percent + "% đầy";
+        String snippet = "Trạng thái: " + getTaskStatusVietnamese(task.getStatus());
+
+        Marker marker = vietmapGL.addMarker(new MarkerOptions()
+                .position(pos)
+                .title(title)
+                .snippet(snippet)
+                .icon(icon));
+
+        // ✅ Lưu vào map
+        markerTaskMap.put(marker, task);
+        binDataMap.put(marker, task);
+
+        Log.d(TAG, "Added marker for task: " + task.getBin().getBinCode());
+    }
+    private void updateMarkerForTask(Task task) {
+        if (vietmapGL == null) return;
+
+        // Tìm marker cũ
+        Marker oldMarker = null;
+        for (Map.Entry<Marker, Task> entry : markerTaskMap.entrySet()) {
+            if (entry.getValue().getTaskID() == task.getTaskID()) {
+                oldMarker = entry.getKey();
+                break;
+            }
+        }
+
+        // Xóa marker cũ
+        if (oldMarker != null) {
+            vietmapGL.removeMarker(oldMarker);
+            markerTaskMap.remove(oldMarker);
+            binDataMap.remove(oldMarker);
+        }
+
+        // Thêm marker mới
+        addMarkerForTask(task);
+
+        Log.d(TAG, "Updated marker for task: " + task.getBin().getBinCode());
+    }
+
+    private String getTaskStatusVietnamese(String status) {
+        if (status == null) return "Không xác định";
+
+        switch (status.toUpperCase()) {
+            case "COMPLETED":
+                return "Đã hoàn thành";
+            case "DOING":
+                return "Đang thực hiện";
+            case "OPEN":
+                return "Đang chờ xử lý";
+            case "CANCELLED":
+                return "Đã hủy";
+            case "ISSUE":
+                return "Có sự cố";
+            default:
+                return "Không xác định";
+        }
+    }
     // ✅ HÀM LẤY VỊ TRÍ HIỆN TẠI
     @SuppressWarnings({"MissingPermission"})
     private void moveToCurrentLocation() {
@@ -260,7 +600,6 @@ public class TaskDetailActivity extends AppCompatActivity {
         locationComponent.setRenderMode(RenderMode.NORMAL);
     }
 
-    // ====== LOAD TASKS ======
     private void loadTasksFromApi() {
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
         apiService.getTasksInBatch(workerId, batchId).enqueue(new Callback<List<Task>>() {
@@ -270,18 +609,34 @@ public class TaskDetailActivity extends AppCompatActivity {
                     allTasks.clear();
                     allTasks.addAll(response.body());
 
+                    // ✅ Khởi tạo icons trước khi vẽ marker
+                    initIcons();
+
+                    ExtendedFloatingActionButton fabOptimize = findViewById(R.id.btnOptimize);
+                    ExtendedFloatingActionButton fabStart = findViewById(R.id.btnStartCollect);
+                    ExtendedFloatingActionButton fabReportBatch = findViewById(R.id.btnReportBatch);
+
+                    boolean allCompleted = true;
+                    for (Task t : allTasks) {
+                        if (!"COMPLETED".equalsIgnoreCase(t.getStatus())) {
+                            allCompleted = false;
+                            break;
+                        }
+                    }
+
+                    if (allCompleted) {
+                        fabOptimize.setVisibility(View.GONE);
+                        fabStart.setVisibility(View.GONE);
+                        fabReportBatch.setVisibility(View.GONE);
+                    } else {
+                        fabOptimize.setVisibility(View.VISIBLE);
+                        fabStart.setVisibility(View.VISIBLE);
+                        fabReportBatch.setVisibility(View.VISIBLE);
+                    }
+
+                    // ✅ Vẽ marker với icon mới
                     for (Task task : allTasks) {
-                        LatLng pos = new LatLng(task.getBin().getLatitude(), task.getBin().getLongitude());
-                        int iconRes = getStatusIcon(task);
-
-                        Marker marker = vietmapGL.addMarker(new MarkerOptions()
-                                .position(pos)
-                                .title("Bin " + task.getBin().getBinCode() + " (" + task.getTaskType() + ")")
-                                .snippet("Trạng thái: " + task.getStatus())
-                                .icon(IconFactory.getInstance(TaskDetailActivity.this)
-                                        .fromBitmap(getBitmapFromVectorDrawable(iconRes))));
-
-                        markerTaskMap.put(marker, task);
+                        addMarkerForTask(task);
                     }
 
                     if (!allTasks.isEmpty()) {
@@ -291,8 +646,10 @@ public class TaskDetailActivity extends AppCompatActivity {
                     }
 
                     vietmapGL.setOnMarkerClickListener(marker -> {
-                        Task clickedTask = markerTaskMap.get(marker);
-                        if (clickedTask != null) showBinDetailBottomSheet(clickedTask);
+                        Task clickedTask = binDataMap.get(marker);
+                        if (clickedTask != null) {
+                            showBinDetailBottomSheet(clickedTask);
+                        }
                         return true;
                     });
                 } else {
@@ -316,7 +673,8 @@ public class TaskDetailActivity extends AppCompatActivity {
         //  LỌC TASK CHƯA HOÀN THÀNH
         List<Task> pendingTasks = new ArrayList<>();
         for (Task t : tasks) {
-            if (!"COMPLETED".equalsIgnoreCase(t.getStatus())) {
+            // Kiểm tra: KHÔNG phải COMPLETED VÀ KHÔNG phải ISSUE
+            if (!"COMPLETED".equalsIgnoreCase(t.getStatus()) && !"ISSUE".equalsIgnoreCase(t.getStatus())) {
                 pendingTasks.add(t);
             }
         }
@@ -353,31 +711,38 @@ public class TaskDetailActivity extends AppCompatActivity {
 
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder().url(url.toString()).build();
+
         client.newCall(request).enqueue(new okhttp3.Callback() {
 
             @Override
             public void onFailure(@NonNull okhttp3.Call call, @NonNull IOException e) {
                 runOnUiThread(() ->
-                        Toast.makeText(TaskDetailActivity.this, "API lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(TaskDetailActivity.this,
+                                "API lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show()
                 );
             }
 
             @Override
-            public void onResponse(@NonNull okhttp3.Call call, @NonNull Response response) throws IOException {
+            public void onResponse(@NonNull okhttp3.Call call, @NonNull okhttp3.Response response)
+                    throws IOException {
+
                 if (!response.isSuccessful() || response.body() == null) {
                     runOnUiThread(() ->
-                            Toast.makeText(TaskDetailActivity.this, "API trả lỗi: " + response.code(), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(TaskDetailActivity.this,
+                                    "API trả lỗi: " + response.code(), Toast.LENGTH_SHORT).show()
                     );
                     return;
                 }
 
+                String body = response.body().string();  // Lấy JSON
                 try {
-                    JSONObject json = new JSONObject(response.body().string());
+                    JSONObject json = new JSONObject(body);
                     JSONArray paths = json.optJSONArray("paths");
 
                     if (paths == null || paths.length() == 0) {
                         runOnUiThread(() ->
-                                Toast.makeText(TaskDetailActivity.this, "Không tìm thấy tuyến phù hợp", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(TaskDetailActivity.this,
+                                        "Không tìm thấy tuyến phù hợp", Toast.LENGTH_SHORT).show()
                         );
                         return;
                     }
@@ -400,8 +765,6 @@ public class TaskDetailActivity extends AppCompatActivity {
                         }
                     }
 
-                    currentStepGlobal = 0;
-
                     runOnUiThread(() -> {
                         if (currentRoute != null) vietmapGL.removeAnnotation(currentRoute);
 
@@ -410,19 +773,20 @@ public class TaskDetailActivity extends AppCompatActivity {
                                 .color(Color.BLUE)
                                 .width(5f));
 
-                        if (!polylinePoints.isEmpty()) {
-                            vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                                    polylinePoints.get(0), 15f
-                            ));
-                        }
-                        // LƯU ROUTE Ở ĐÂY – SAU KHI ĐÃ CÓ DATA
+                        // Lưu lại route nếu cần
                         saveRouteToLocal(polylinePoints, routeSteps);
 
+                        if (!polylinePoints.isEmpty()) {
+                            vietmapGL.animateCamera(
+                                    CameraUpdateFactory.newLatLngZoom(polylinePoints.get(0), 15f)
+                            );
+                        }
                     });
 
                 } catch (JSONException e) {
                     runOnUiThread(() ->
-                            Toast.makeText(TaskDetailActivity.this, "Parse JSON lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(TaskDetailActivity.this,
+                                    "Parse JSON lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show()
                     );
                 }
             }
@@ -497,21 +861,36 @@ public class TaskDetailActivity extends AppCompatActivity {
 
 
     // ====== START / FOLLOW ROUTE WITH VOICE ======
-    private void startCollectingRoute() {
+    private boolean startCollectingRoute() {
+        // 1. Kiểm tra Tuyến đường
         if (polylinePoints.isEmpty() || routeSteps.isEmpty()) {
+            // Nếu lỗi, hiện Toast và dừng
             Toast.makeText(this, "Chưa có tuyến để theo dõi, hãy bấm Tối ưu trước!", Toast.LENGTH_SHORT).show();
-            return;
+            return false;
         }
+
+        // 2. Kiểm tra TTS
         if (!ttsReady) {
+            // Nếu lỗi, hiện Toast và dừng
             Toast.makeText(this, "TTS chưa sẵn sàng để đọc", Toast.LENGTH_SHORT).show();
-            return;
+            return false;
         }
+
+        // 3. Kiểm tra Trạng thái đang điều hướng
         if (isNavigating) {
+            // Nếu đã chạy, hiện Toast (nếu cần) và dừng, coi như thành công
             Toast.makeText(this, "Đang điều hướng...", Toast.LENGTH_SHORT).show();
-            return;
+            return true;
         }
+
+        // 4. Bắt đầu điều hướng (Chỉ khi không có lỗi)
         followRouteWithVoice();
-        Toast.makeText(this, "Bắt đầu thu gom!", Toast.LENGTH_SHORT).show();
+
+        // 5. Cập nhật trạng thái
+        isNavigating = true;
+
+        // 6. Báo cáo thành công
+        return true;
     }
 
     @SuppressWarnings({"MissingPermission"})
@@ -583,6 +962,7 @@ public class TaskDetailActivity extends AppCompatActivity {
 
     // ====== BOTTOM SHEET ======
     private void showBinDetailBottomSheet(Task task) {
+
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         View view = getLayoutInflater().inflate(R.layout.layout_bottomsheet_bin_detail, null);
         dialog.setContentView(view);
@@ -590,6 +970,9 @@ public class TaskDetailActivity extends AppCompatActivity {
         TextView tvTitle = view.findViewById(R.id.tvBinTitle);
         TextView tvStatus = view.findViewById(R.id.tvBinStatus);
         Button btnComplete = view.findViewById(R.id.btnCompleteBin);
+        Button btnReport = view.findViewById(R.id.btnReportThisBin);
+
+        ImageView imgProof = view.findViewById(R.id.imgProof); // ⭐ Thêm dòng này
 
         // 🗑️ Tiêu đề
         tvTitle.setText("Thùng rác " + task.getBin().getBinCode());
@@ -606,21 +989,53 @@ public class TaskDetailActivity extends AppCompatActivity {
             case "CANCELLED":
                 statusVi = "Đã hủy";
                 break;
+            case "ISSUE":
+                statusVi = "Gặp sự có";
+                break;
             default:
                 statusVi = "Không xác định";
         }
 
         tvStatus.setText("Trạng thái: " + statusVi);
 
+
+        // ⭐⭐⭐ HIỂN THỊ ẢNH CHỨNG MINH NẾU ĐÃ HOÀN THÀNH ⭐⭐⭐
         if (task.getStatus().equalsIgnoreCase("COMPLETED")) {
-            btnComplete.setVisibility(View.GONE); // Ẩn nút
+
+            btnComplete.setVisibility(View.GONE);
             tvStatus.setTextColor(Color.parseColor("#4CAF50"));
             tvStatus.setText("Đã hoàn thành");
+
+            imgProof.setVisibility(View.VISIBLE); // Hiện ảnh
+
+            // 👉 Thay task.getProofImageUrl() bằng trường backend bạn trả về
+            Glide.with(this)
+                    .load(task.getAfterImage())
+                    .placeholder(R.drawable.ic_profile_placeholder)
+                    .error(R.drawable.placeholder_image)
+                    .into(imgProof);
+
         } else {
-            btnComplete.setVisibility(View.VISIBLE);
-            tvStatus.setTextColor(Color.parseColor("#FF9800"));
-            tvStatus.setText("Đang chờ xử lý");
+
+            imgProof.setVisibility(View.GONE);
+
+            if (task.getStatus().equalsIgnoreCase("OPEN")) {
+                btnComplete.setVisibility(View.GONE);
+                tvStatus.setTextColor(Color.parseColor("#FF9800"));
+                tvStatus.setText("Đang chờ nhận nhiệm vụ");
+            } else if (task.getStatus().equalsIgnoreCase("ISSUE")) {
+                btnComplete.setVisibility(View.GONE);
+                btnReport.setVisibility(View.GONE);
+                tvStatus.setTextColor(Color.parseColor("#FF9800"));
+                tvStatus.setText("Đã gặp sự cố");
+            }else if (task.getStatus().equalsIgnoreCase("DOING")) {
+                btnComplete.setVisibility(View.VISIBLE);
+                btnReport.setVisibility(View.VISIBLE);
+                tvStatus.setTextColor(Color.parseColor("#FF9800"));
+                tvStatus.setText("Đang chờ xử lý");
+            }
         }
+
 
         btnComplete.setOnClickListener(v -> {
             dialog.dismiss();
@@ -629,19 +1044,54 @@ public class TaskDetailActivity extends AppCompatActivity {
             intent.putExtra("binCode", task.getBin().getBinCode());
             intent.putExtra("binLat", task.getBin().getLatitude());
             intent.putExtra("binLng", task.getBin().getLongitude());
-            intent.putExtra("currentFill", task.getBin().getCurrentFill());   // % đầy
-            intent.putExtra("capacity", task.getBin().getCapacity());         // dung tích
+            intent.putExtra("currentFill", task.getBin().getCurrentFill());
+            intent.putExtra("capacity", task.getBin().getCapacity());
+            intent.putExtra("bin_adrress", task.getBin().getStreet() + "," +
+                    task.getBin().getProvinceName() + "," +
+                    task.getBin().getProvinceName());
 
-            intent.putExtra("bin_adrress", task.getBin().getStreet() + "," + task.getBin().getProvinceName() + "," +  task.getBin().getProvinceName() );
             completeTaskLauncher.launch(intent);
+        });
+        Button btnReportThisBin = view.findViewById(R.id.btnReportThisBin);
 
+        btnReportThisBin.setOnClickListener(v -> {
+            dialog.dismiss();
+            showSingleBinIssueDialog(task);
+        });
+        dialog.show();
+    }
 
+    private void showSingleBinIssueDialog(Task task) {
+        Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.layout_dialog_report_issue);
+
+        // Full width cho dialog
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
+
+        EditText edtReason = dialog.findViewById(R.id.edtReason);
+        Button btnSubmit = dialog.findViewById(R.id.btnSubmitReason);
+
+        // Đặt title động
+
+        btnSubmit.setOnClickListener(v -> {
+            String reason = edtReason.getText().toString().trim();
+
+            if (reason.isEmpty()) {
+                Toast.makeText(this, "Vui lòng nhập lý do!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            dialog.dismiss();
+            reportSingleBin(task, reason); // Gửi lý do vào API
         });
 
         dialog.show();
     }
-
-
     private final ActivityResultLauncher<Intent> completeTaskLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
@@ -674,14 +1124,22 @@ public class TaskDetailActivity extends AppCompatActivity {
                         if (!pending.isEmpty()) {
 
                             drawRouteOnly(pending, () -> {
-                                // ⭐ CHỈ CHẠY KHI ROUTE VẼ XONG
-                                currentStepGlobal = 0;
-                                startCollectingRoute();
+                                // ⭐ Đảm bảo rằng callback này chạy trên UI Thread (thường là mặc định trong Android)
 
-                                ExtendedFloatingActionButton fabStart = findViewById(R.id.btnStartCollect);
-                                fabStart.setText("Dừng thu gom");
-                                fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F44336")));
-                                isCollecting = true;
+                                currentStepGlobal = 0;
+
+                                // 1. Gọi hàm và lấy kết quả thành công/thất bại
+                                boolean routeStartedSuccessfully = startCollectingRoute();
+
+                                // 2. CHỈ CẬP NHẬT UI KHI HÀM BÁO THÀNH CÔNG (true)
+                                if (routeStartedSuccessfully) {
+                                    ExtendedFloatingActionButton fabStart = findViewById(R.id.btnStartCollect);
+                                    fabStart.setText("Dừng thu gom");
+                                    fabStart.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F44336")));
+                                    isCollecting = true;
+
+                                    Toast.makeText(this, "Bắt đầu thu gom!", Toast.LENGTH_SHORT).show();
+                                }
                             });
 
                         } else {
@@ -694,31 +1152,19 @@ public class TaskDetailActivity extends AppCompatActivity {
                 }
             });
 
-    private void redrawMarkers() {
-        // ❌ vietmapGL.clear();  // Đừng xóa polyline
-        // Thay thế bằng:
-        // Xóa tất cả marker nhưng giữ polyline
-        for (Marker m : markerTaskMap.keySet()) {
-            vietmapGL.removeAnnotation(m);
-        }
-        markerTaskMap.clear();
-
-        // Vẽ lại marker
-        for (Task task : allTasks) {
-            LatLng pos = new LatLng(task.getBin().getLatitude(), task.getBin().getLongitude());
-            int iconRes = getStatusIcon(task);
-
-            Marker marker = vietmapGL.addMarker(new MarkerOptions()
-                    .position(pos)
-                    .title("Bin " + task.getBin().getBinCode())
-                    .snippet("Trạng thái: " + task.getStatus())
-                    .icon(IconFactory.getInstance(this)
-                            .fromBitmap(getBitmapFromVectorDrawable(iconRes))));
-
-            markerTaskMap.put(marker, task);
-        }
+private void redrawMarkers() {
+    // Xóa tất cả marker nhưng giữ polyline
+    for (Marker m : markerTaskMap.keySet()) {
+        vietmapGL.removeAnnotation(m);
     }
+    markerTaskMap.clear();
+    binDataMap.clear();
 
+    // Vẽ lại marker với icon mới
+    for (Task task : allTasks) {
+        addMarkerForTask(task);
+    }
+}
 
     private File createImageFile() throws IOException {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
@@ -746,48 +1192,48 @@ public class TaskDetailActivity extends AppCompatActivity {
     }
 
 
-    private int getStatusIcon(Task task) {
-        if (task == null) return R.drawable.ic_bin_red;
+//    private int getStatusIcon(Task task) {
+//        if (task == null) return R.drawable.ic_bin_red;
+//
+//        String status = task.getStatus() != null ? task.getStatus().toUpperCase() : "";
+//        double fill = task.getBin().getCurrentFill(); // giả sử model Bin có currentFill (%)
+//
+//        if ("COMPLETED".equals(status)) {
+//            return R.drawable.ic_bin_green;
+//        }
+//
+//        if (fill >= 80) {
+//            return R.drawable.ic_bin_red;
+//        }
+//
+//        // 🟡 Đang xử lý
+//        if (fill >= 40) {
+//            return R.drawable.ic_bin_yellow;
+//        }
+//
+//
+//        // Mặc định (nếu có status lạ)
+//        return R.drawable.ic_bin_red;
+//
+//    }
 
-        String status = task.getStatus() != null ? task.getStatus().toUpperCase() : "";
-        double fill = task.getBin().getCurrentFill(); // giả sử model Bin có currentFill (%)
-
-        if ("COMPLETED".equals(status)) {
-            return R.drawable.ic_bin_green;
-        }
-
-        if (fill >= 80) {
-            return R.drawable.ic_bin_red;
-        }
-
-        // 🟡 Đang xử lý
-        if (fill >= 40) {
-            return R.drawable.ic_bin_yellow;
-        }
-
-
-        // Mặc định (nếu có status lạ)
-        return R.drawable.ic_bin_red;
-
-    }
-
-        private Bitmap getBitmapFromVectorDrawable(int drawableId) {
-        Drawable drawable = ContextCompat.getDrawable(this, drawableId);
-        if (drawable == null) {
-            Bitmap empty = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-            empty.eraseColor(Color.TRANSPARENT);
-            return empty;
-        }
-        Bitmap bitmap = Bitmap.createBitmap(
-                Math.max(1, drawable.getIntrinsicWidth()),
-                Math.max(1, drawable.getIntrinsicHeight()),
-                Bitmap.Config.ARGB_8888
-        );
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-        return bitmap;
-    }
+//        private Bitmap getBitmapFromVectorDrawable(int drawableId) {
+//        Drawable drawable = ContextCompat.getDrawable(this, drawableId);
+//        if (drawable == null) {
+//            Bitmap empty = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+//            empty.eraseColor(Color.TRANSPARENT);
+//            return empty;
+//        }
+//        Bitmap bitmap = Bitmap.createBitmap(
+//                Math.max(1, drawable.getIntrinsicWidth()),
+//                Math.max(1, drawable.getIntrinsicHeight()),
+//                Bitmap.Config.ARGB_8888
+//        );
+//        Canvas canvas = new Canvas(bitmap);
+//        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+//        drawable.draw(canvas);
+//        return bitmap;
+//    }
 
 
 

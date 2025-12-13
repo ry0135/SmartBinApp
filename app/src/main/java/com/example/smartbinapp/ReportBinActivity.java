@@ -278,13 +278,27 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
             uploadNextFirebase(index + 1);
         });
     }
-
+    private String getReportTypeCode(String typeName) {
+        switch (typeName) {
+            case "Thùng đầy":
+                return "FULL";
+            case "Thùng tràn":
+                return "OVERFLOW";
+            case "Thùng hư hỏng":
+                return "DAMAGED";
+            default:
+                return "OTHER";
+        }
+    }
     /** 📤 Gửi dữ liệu báo cáo kèm URL ảnh Firebase lên backend */
     private void createReport() {
+        String selectedType = actvReportType.getText().toString().trim();
+        String reportTypeCode = getReportTypeCode(selectedType);
+
         ReportRequest req = new ReportRequest();
         req.setBinId(binId);
         req.setAccountId(accountId);
-        req.setReportType("OTHER");
+        req.setReportType(reportTypeCode);
         req.setDescription(etDescription.getText().toString().trim());
         req.setLocation(binAddress);
         req.setStatus("PENDING");

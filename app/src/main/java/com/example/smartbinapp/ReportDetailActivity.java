@@ -240,8 +240,8 @@ public class ReportDetailActivity extends AppCompatActivity {
         tvBinAddress.setText("Địa chỉ: " + address);
 
         // Set images
-        if (report.getImageUrls() != null && !report.getImageUrls().isEmpty()) {
-            imagesAdapter.setImageUrls(report.getImageUrls());
+        if (report.getImages() != null && !report.getImages().isEmpty()) {
+            imagesAdapter.setImageUrls(report.getImages());
             tvNoImages.setVisibility(View.GONE);
         } else {
             tvNoImages.setVisibility(View.VISIBLE);

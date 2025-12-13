@@ -31,6 +31,16 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp">
 
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/btnReportBatch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Báo cáo sự cố"
+            android:backgroundTint="#FF5722"
+            android:drawableLeft="@drawable/ic_warning"
+            app:iconPadding="8dp"
+            app:icon="@drawable/ic_warning"/>
+
         <!-- Nút tối ưu -->
         <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
             android:id="@+id/btnOptimize"

@@ -39,7 +39,6 @@ import retrofit2.Response;
 
 public class LoginActivity extends AppCompatActivity {
 
-    private ImageView ivLoginBin;
     private LinearLayout headerSection;
     private CardView loginCard;
     private TextInputEditText etUsername, etPassword;
@@ -88,7 +87,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void initializeViews() {
-        ivLoginBin = findViewById(R.id.iv_login_bin);
+        ImageView ivLoginBin = findViewById(R.id.iv_login_bin);
         headerSection = findViewById(R.id.header_section);
         loginCard = findViewById(R.id.login_card);
         etUsername = findViewById(R.id.et_username);
@@ -180,6 +179,11 @@ public class LoginActivity extends AppCompatActivity {
 
                     if (accountId == null) {
                         Toast.makeText(LoginActivity.this, "Lỗi: Không lấy được ID tài khoản", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (role == null || (role != 3 && role != 4 && role != 5)) {
+                        Toast.makeText(LoginActivity.this, "❌ Tài khoản không hợp lệ.", Toast.LENGTH_LONG).show();
+                        // KHÔNG saveSession và KHÔNG chuyển màn hình
                         return;
                     }
 

@@ -98,7 +98,9 @@ public class Notification {
 
     public String getImageUrl() {
         if (imageUrl == null || imageUrl.isEmpty()) {
-            return "https://cdn-icons-png.flaticon.com/512/1827/1827340.png"; // fallback icon
+            return "https://thumbs.dreamstime.com/b/reminders-icon-often-featuring-bell-symbolizes-alerts-task-management-notifications-reminders-icon-often-featuring-327042080.jpg"; // fallback icon
+
+
         }
         return imageUrl;
     }

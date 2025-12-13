@@ -15,7 +15,7 @@ public class TaskWebSocketService {
 
     private static final String TAG = "TaskWebSocket";
 //    private static final String WS_URL = "ws://13.228.79.109:8080/SmartBinWeb/ws-bin";
-private static final String WS_URL = "wss://smartbin-vn.duckdns.org/ws-bin";
+private static final String WS_URL = "wss://smartbinx.duckdns.org/ws-bin";
 
     private final Gson gson = new Gson();
 

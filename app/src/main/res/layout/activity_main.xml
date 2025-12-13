@@ -7,7 +7,6 @@
     android:fillViewport="true">
 
     <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/main"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="16dp">
@@ -30,6 +29,7 @@
                 android:layout_marginBottom="16dp" />
 
             <TextView
+                android:id="@+id/tv_bin_code"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Smart Bin"
@@ -39,6 +39,7 @@
                 android:layout_marginBottom="8dp" />
 
             <TextView
+                android:id="@+id/tv_bin_address"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Thùng rác thông minh"
@@ -74,6 +75,32 @@
                     android:textStyle="bold"
                     android:layout_marginBottom="16dp" />
 
+                <!-- Fill Level -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="12dp">
+
+                    <View
+                        android:id="@+id/view_fill_status"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:background="@drawable/status_indicator"
+                        android:layout_marginEnd="12dp" />
+
+                    <TextView
+                        android:id="@+id/tv_fill_level"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Mức độ đầy: --%"
+                        android:textColor="#666666"
+                        android:textSize="16sp" />
+                </LinearLayout>
+
+                <!-- Sensor Status -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -88,38 +115,16 @@
                         android:layout_marginEnd="12dp" />
 
                     <TextView
+                        android:id="@+id/tv_sensor_status"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Mức độ đầy: 75%"
+                        android:text="Cảm biến: --"
                         android:textColor="#666666"
                         android:textSize="16sp" />
-
                 </LinearLayout>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="12dp">
-
-                    <View
-                        android:layout_width="12dp"
-                        android:layout_height="12dp"
-                        android:background="@drawable/status_indicator"
-                        android:layout_marginEnd="12dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Cảm biến: Hoạt động"
-                        android:textColor="#666666"
-                        android:textSize="16sp" />
-
-                </LinearLayout>
-
+                <!-- Network Status -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -133,13 +138,13 @@
                         android:layout_marginEnd="12dp" />
 
                     <TextView
+                        android:id="@+id/tv_network_status"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Kết nối: WiFi"
+                        android:text="Kết nối: --"
                         android:textColor="#666666"
                         android:textSize="16sp" />
-
                 </LinearLayout>
 
             </LinearLayout>
@@ -160,7 +165,7 @@
                 android:id="@+id/btn_open_bin"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="Mở thùng rác"
+                android:text="Báo cáo thùng rác"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:textStyle="bold"
@@ -171,7 +176,7 @@
                 android:id="@+id/btn_check_status"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="Kiểm tra trạng thái"
+                android:text="Xem trên bản đồ"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:textStyle="bold"
@@ -187,10 +192,9 @@
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:background="@drawable/button_ripple" />
-
         </LinearLayout>
 
-        <!-- Statistics Card -->
+        <!-- Stats Card -->
         <androidx.cardview.widget.CardView
             android:id="@+id/stats_card"
             android:layout_width="match_parent"
@@ -217,12 +221,14 @@
                     android:textStyle="bold"
                     android:layout_marginBottom="16dp" />
 
+                <!-- Stats Row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:layout_marginBottom="16dp">
 
+                    <!-- Open count -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -231,9 +237,10 @@
                         android:gravity="center">
 
                         <TextView
+                            android:id="@+id/tv_open_count"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="15"
+                            android:text="--"
                             android:textColor="#4CAF50"
                             android:textSize="24sp"
                             android:textStyle="bold" />
@@ -244,9 +251,9 @@
                             android:text="Lần mở"
                             android:textColor="#666666"
                             android:textSize="14sp" />
-
                     </LinearLayout>
 
+                    <!-- Efficiency -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -255,9 +262,10 @@
                         android:gravity="center">
 
                         <TextView
+                            android:id="@+id/tv_efficiency"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="85%"
+                            android:text="--%"
                             android:textColor="#FF9800"
                             android:textSize="24sp"
                             android:textStyle="bold" />
@@ -268,9 +276,9 @@
                             android:text="Hiệu suất"
                             android:textColor="#666666"
                             android:textSize="14sp" />
-
                     </LinearLayout>
 
+                    <!-- Waste -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -279,9 +287,10 @@
                         android:gravity="center">
 
                         <TextView
+                            android:id="@+id/tv_waste"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="2.5kg"
+                            android:text="--kg"
                             android:textColor="#2196F3"
                             android:textSize="24sp"
                             android:textStyle="bold" />
@@ -292,13 +301,11 @@
                             android:text="Rác thải"
                             android:textColor="#666666"
                             android:textSize="14sp" />
-
                     </LinearLayout>
 
                 </LinearLayout>
 
             </LinearLayout>
-
         </androidx.cardview.widget.CardView>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
