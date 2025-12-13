@@ -15,6 +15,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.speech.tts.TextToSpeech;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
@@ -30,13 +32,22 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-import com.google.common.reflect.TypeToken;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-
-import java.lang.reflect.Type;
+//import com.google.android.gms.location.Priority;
+//import com.google.common.reflect.TypeToken;
+//import com.google.gson.Gson;
+//import com.google.gson.JsonArray;
+//import com.google.gson.JsonObject;
+//import java.lang.reflect.Type;
+import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -45,6 +56,8 @@ import vn.vietmap.vietmapsdk.Vietmap;
 import vn.vietmap.vietmapsdk.annotations.Icon;
 import vn.vietmap.vietmapsdk.annotations.IconFactory;
 import vn.vietmap.vietmapsdk.annotations.MarkerOptions;
+import vn.vietmap.vietmapsdk.annotations.Polyline;
+import vn.vietmap.vietmapsdk.annotations.PolylineOptions;
 import vn.vietmap.vietmapsdk.camera.CameraUpdateFactory;
 import vn.vietmap.vietmapsdk.geometry.LatLng;
 import vn.vietmap.vietmapsdk.location.LocationComponent;
@@ -55,6 +68,8 @@ import vn.vietmap.vietmapsdk.location.modes.RenderMode;
 import vn.vietmap.vietmapsdk.maps.MapView;
 import vn.vietmap.vietmapsdk.maps.Style;
 import vn.vietmap.vietmapsdk.maps.VietMapGL;
+
+
 
 public class NearbyBinsActivity extends AppCompatActivity {
 
@@ -67,12 +82,25 @@ public class NearbyBinsActivity extends AppCompatActivity {
     private ApiService apiService;
 
     private CardView cardBinInfo;
-    private TextView tvBinCode, tvBinAddress, tvFillLevel;
+    private TextView tvBinCode, tvBinAddress, tvFillLevel, tvNearestBin;
     private ProgressBar progressFill;
-    private Button btnReport;
+    private Button btnReport, btnNavigate;
 
     private Bin selectedBin;
     private LocationCallback locationCallback;
+
+    // Route / polyline
+    private Polyline currentRoute;
+    private final List<LatLng> routePolylinePoints = new java.util.ArrayList<>();
+    private final List<JSONObject> routeSteps = new java.util.ArrayList<>();
+    private int currentStepIndex = 0;
+    private com.google.android.gms.location.LocationCallback navRouteCallback;
+    private boolean isNavigating = false;
+    private static final float STEP_TRIGGER_METERS = 30f; // 30m trước ngã rẽ
+
+    // Text-to-Speech
+    private TextToSpeech textToSpeech;
+    private boolean ttsReady = false;
 
     // 🗑 Icon cache
     private Bitmap iconRed, iconYellow, iconGreen, iconDefault;
@@ -90,10 +118,25 @@ public class NearbyBinsActivity extends AppCompatActivity {
 
         cardBinInfo = findViewById(R.id.cardBinInfo);
         tvBinCode = findViewById(R.id.tvBinCode);
+        tvNearestBin = findViewById(R.id.tvNearestBin);
         tvBinAddress = findViewById(R.id.tvBinAddress);
         tvFillLevel = findViewById(R.id.tvFillLevel);
         progressFill = findViewById(R.id.progressFill);
         btnReport = findViewById(R.id.btnReport);
+        btnNavigate = findViewById(R.id.btnNavigate);
+
+        // Khởi tạo TextToSpeech để đọc hướng đi
+        textToSpeech = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                int res = textToSpeech.setLanguage(Locale.forLanguageTag("vi-VN"));
+                if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    textToSpeech.setLanguage(Locale.getDefault());
+                }
+                ttsReady = true;
+            } else {
+                Toast.makeText(this, "Không khởi tạo được TextToSpeech", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         initIcons(); // ✅ Khởi tạo icon
 
@@ -179,7 +222,7 @@ public class NearbyBinsActivity extends AppCompatActivity {
                 if (locationResult.getLastLocation() != null) {
                     updateMapAndFetch(locationResult.getLastLocation());
                 }
-            }
+            }   
         };
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -215,6 +258,9 @@ public class NearbyBinsActivity extends AppCompatActivity {
                                     .icon(icon));
                         }
                         Bin firstBin = bins.get(0);
+                        if (tvNearestBin != null) {
+                            tvNearestBin.setText("Thùng rác gần bạn nhất: " + firstBin.getBinCode());
+                        }
                         vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
                                 new LatLng(firstBin.getLatitude(), firstBin.getLongitude()), 14));
                         updateBinInfoCard(firstBin);
@@ -246,6 +292,14 @@ public class NearbyBinsActivity extends AppCompatActivity {
         int percent = (int) bin.getCurrentFill();
         tvFillLevel.setText(percent + "%");
         progressFill.setProgress(percent);
+        // đổi màu progress theo phần trăm: <40 xanh, 40–79 vàng, >=80 đỏ
+        if (percent >= 80) {
+            progressFill.setProgressDrawable(ContextCompat.getDrawable(this, R.drawable.progress_bin_red));
+        } else if (percent >= 40) {
+            progressFill.setProgressDrawable(ContextCompat.getDrawable(this, R.drawable.progress_bin_yellow));
+        } else {
+            progressFill.setProgressDrawable(ContextCompat.getDrawable(this, R.drawable.progress_bin_green));
+        }
         cardBinInfo.setVisibility(View.VISIBLE);
 
         btnReport.setOnClickListener(v -> {
@@ -255,6 +309,201 @@ public class NearbyBinsActivity extends AppCompatActivity {
             intent.putExtra("bin_address", tvBinAddress.getText().toString());
             startActivity(intent);
         });
+
+        // 🎯 Nút chỉ đường đến thùng rác này (gần nhất nếu là firstBin)
+        if (btnNavigate != null) {
+            btnNavigate.setOnClickListener(v -> navigateToBin(bin));
+        }
+    }
+
+    // ------------------------- NAVIGATION -------------------------
+
+    private void navigateToBin(Bin bin) {
+        if (bin == null || vietmapGL == null) return;
+
+        LocationComponent lc = vietmapGL.getLocationComponent();
+        Location myLocation = (lc != null) ? lc.getLastKnownLocation() : null;
+        if (myLocation == null) {
+            Toast.makeText(this, "Không lấy được vị trí hiện tại", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        double fromLat = myLocation.getLatitude();
+        double fromLng = myLocation.getLongitude();
+        double toLat = bin.getLatitude();
+        double toLng = bin.getLongitude();
+
+        StringBuilder url = new StringBuilder("https://maps.vietmap.vn/api/route")
+                .append("?api-version=1.1")
+                .append("&apikey=").append(VIETMAP_API_KEY)
+                .append("&vehicle=car")
+                .append("&points_encoded=false")
+                .append("&instructions=true");
+
+        // Lưu ý: VietMap route thường dùng dạng point=lat,lng
+        url.append("&point=").append(fromLat).append(",").append(fromLng);
+        url.append("&point=").append(toLat).append(",").append(toLng);
+
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder().url(url.toString()).build();
+
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(@NonNull okhttp3.Call call, @NonNull IOException e) {
+                runOnUiThread(() ->
+                        Toast.makeText(NearbyBinsActivity.this, "Lỗi route Vietmap: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                );
+            }
+
+            @Override
+            public void onResponse(@NonNull okhttp3.Call call, @NonNull okhttp3.Response response) throws IOException {
+                if (!response.isSuccessful() || response.body() == null) {
+                    runOnUiThread(() ->
+                            Toast.makeText(NearbyBinsActivity.this, "Route API trả lỗi: " + response.code(), Toast.LENGTH_SHORT).show()
+                    );
+                    return;
+                }
+
+                try {
+                    JSONObject json = new JSONObject(response.body().string());
+                    JSONArray paths = json.optJSONArray("paths");
+                    if (paths == null || paths.length() == 0) {
+                        runOnUiThread(() ->
+                                Toast.makeText(NearbyBinsActivity.this, "Không tìm thấy tuyến phù hợp", Toast.LENGTH_SHORT).show()
+                        );
+                        return;
+                    }
+
+                    JSONObject path = paths.getJSONObject(0);
+                    JSONArray coords = path.getJSONObject("points").getJSONArray("coordinates");
+
+                    // Lưu polyline global để dùng cho điều hướng theo bước
+                    routePolylinePoints.clear();
+                    for (int i = 0; i < coords.length(); i++) {
+                        JSONArray c = coords.getJSONArray(i); // [lng, lat]
+                        routePolylinePoints.add(new LatLng(c.getDouble(1), c.getDouble(0)));
+                    }
+
+                    // Lưu toàn bộ step (gồm interval) để xác định điểm ngã rẽ
+                    routeSteps.clear();
+                    JSONArray instructionsArray = path.optJSONArray("instructions");
+                    if (instructionsArray != null) {
+                        for (int i = 0; i < instructionsArray.length(); i++) {
+                            routeSteps.add(instructionsArray.getJSONObject(i));
+                        }
+                    }
+                    currentStepIndex = 0;
+
+                    runOnUiThread(() -> {
+                        if (currentRoute != null) {
+                            vietmapGL.removeAnnotation(currentRoute);
+                        }
+                        currentRoute = vietmapGL.addPolyline(
+                                new PolylineOptions()
+                                        .addAll(routePolylinePoints)
+                                        .color(0xFF1976D2) // xanh dương
+                                        .width(5f)
+                        );
+
+                        if (!routePolylinePoints.isEmpty()) {
+                            vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(routePolylinePoints.get(0), 15f));
+                        }
+
+                        Toast.makeText(NearbyBinsActivity.this, "Đã vẽ tuyến đến thùng rác", Toast.LENGTH_SHORT).show();
+
+                        // Bắt đầu điều hướng bằng giọng nói theo từng bước
+                        startRouteVoiceNavigation();
+                    });
+
+                } catch (JSONException e) {
+                    runOnUiThread(() ->
+                            Toast.makeText(NearbyBinsActivity.this, "Lỗi parse JSON route: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                    );
+                }
+            }
+        });
+    }
+
+    @SuppressWarnings({"MissingPermission"})
+    private void startRouteVoiceNavigation() {
+        if (!ttsReady || textToSpeech == null) {
+            Toast.makeText(this, "TTS chưa sẵn sàng để đọc hướng đi", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (routePolylinePoints.isEmpty() || routeSteps.isEmpty()) {
+            Toast.makeText(this, "Chưa có tuyến để điều hướng", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (isNavigating) {
+            Toast.makeText(this, "Đang điều hướng...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        com.google.android.gms.location.LocationRequest request =
+                com.google.android.gms.location.LocationRequest.create()
+                        .setInterval(2000)
+                        .setFastestInterval(1000)
+                        .setPriority(com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+        navRouteCallback = new com.google.android.gms.location.LocationCallback() {
+            @Override
+            public void onLocationResult(@NonNull com.google.android.gms.location.LocationResult locationResult) {
+                if (locationResult == null || routeSteps.isEmpty()) return;
+
+                Location loc = locationResult.getLastLocation();
+                if (loc == null) return;
+
+                double lat = loc.getLatitude();
+                double lng = loc.getLongitude();
+
+                try {
+                    if (currentStepIndex < routeSteps.size()) {
+                        JSONObject step = routeSteps.get(currentStepIndex);
+                        JSONArray interval = step.getJSONArray("interval"); // [startIdx, endIdx]
+                        int endIdx = interval.getInt(1);
+                        if (endIdx < 0 || endIdx >= routePolylinePoints.size()) {
+                            currentStepIndex++;
+                            return;
+                        }
+                        LatLng target = routePolylinePoints.get(endIdx);
+
+                        float[] d = new float[1];
+                        Location.distanceBetween(lat, lng, target.getLatitude(), target.getLongitude(), d);
+
+                        String text = step.optString("text",
+                                step.optString("instruction", "Tiếp tục theo tuyến đường"));
+
+                        if (currentStepIndex == 0) {
+                            // Bước đầu tiên: đọc ngay lập tức
+                            textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "STEP_0");
+                            currentStepIndex++;
+                        } else if (d[0] <= STEP_TRIGGER_METERS) {
+                            // Khi còn cách ngã rẽ ~30m thì đọc bước tiếp theo
+                            textToSpeech.speak(text, TextToSpeech.QUEUE_ADD, null, "STEP_" + currentStepIndex);
+                            currentStepIndex++;
+                        }
+
+                        if (currentStepIndex >= routeSteps.size()) {
+                            textToSpeech.speak("Bạn đã đến thùng rác.", TextToSpeech.QUEUE_ADD, null, "DONE");
+                            stopRouteNavigationUpdates();
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e("NearbyBins", "NAV error: " + e.getMessage());
+                }
+            }
+        };
+
+        fusedLocationClient.requestLocationUpdates(request, navRouteCallback, getMainLooper());
+        isNavigating = true;
+        Toast.makeText(this, "Bắt đầu điều hướng đến thùng rác", Toast.LENGTH_SHORT).show();
+    }
+
+    private void stopRouteNavigationUpdates() {
+        if (fusedLocationClient != null && navRouteCallback != null) {
+            fusedLocationClient.removeLocationUpdates(navRouteCallback);
+        }
+        isNavigating = false;
     }
 
     // ------------------------- ICONS -------------------------
@@ -307,7 +556,16 @@ public class NearbyBinsActivity extends AppCompatActivity {
     @Override protected void onResume() { super.onResume(); mapView.onResume(); }
     @Override protected void onPause() { super.onPause(); mapView.onPause(); }
     @Override protected void onStop() { super.onStop(); mapView.onStop(); }
-    @Override protected void onDestroy() { super.onDestroy(); mapView.onDestroy(); }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mapView.onDestroy();
+        stopRouteNavigationUpdates();
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+    }
     @Override protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
