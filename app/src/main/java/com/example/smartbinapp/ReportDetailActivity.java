@@ -276,6 +276,9 @@ public class ReportDetailActivity extends AppCompatActivity {
                     intent.putExtra("report_id", reportId);
                     // Kiểm tra null an toàn hơn cho binId
                     intent.putExtra("bin_id", report.getBinId() != null ? report.getBinId() : -1);
+                    // Gửi kèm mô tả để màn Feedback hiển thị tên báo cáo
+                    intent.putExtra("report_description",
+                            report.getDescription() != null ? report.getDescription() : "");
                     startActivity(intent);
                 });
             }

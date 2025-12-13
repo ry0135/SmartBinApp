@@ -51,6 +51,10 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
     private int retryCount = 0;
     private static final int MAX_RETRY = 2;
 
+    // Khi được mở từ ReportDetailActivity, ta đã biết reportId cần đánh giá
+    private Integer directReportId = null;
+    private String directReportDescription = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,6 +62,16 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
 
         // Initialize API service
         apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
+
+        // Nhận report_id (và mô tả) nếu được mở từ ReportDetailActivity
+        Intent intent = getIntent();
+        if (intent != null) {
+            int idFromIntent = intent.getIntExtra("report_id", -1);
+            if (idFromIntent != -1) {
+                directReportId = idFromIntent;
+            }
+            directReportDescription = intent.getStringExtra("report_description");
+        }
 
         // Get account ID from SharedPreferences
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
@@ -82,8 +96,29 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
         setupClickListeners();
         setupRecyclerView();
 
-        // Load resolved reports
-        loadResolvedReports();
+        // Nếu có reportId truyền sang -> chế độ đánh giá 1 báo cáo cụ thể
+        if (directReportId != null) {
+            selectedReportId = directReportId;
+
+            String label;
+            if (directReportDescription != null && !directReportDescription.trim().isEmpty()) {
+                label = "Đang đánh giá: " + directReportDescription;
+            } else {
+                label = "Đang đánh giá báo cáo #" + selectedReportId;
+            }
+            tvSelectedReport.setText(label);
+            tvSelectedReport.setVisibility(View.VISIBLE);
+
+            // Ẩn danh sách báo cáo, chỉ hiện form đánh giá
+            rvResolvedReports.setVisibility(View.GONE);
+            View feedbackForm = findViewById(R.id.feedbackForm);
+            if (feedbackForm != null) {
+                feedbackForm.setVisibility(View.VISIBLE);
+            }
+        } else {
+            // Ngược lại, cho phép người dùng chọn trong danh sách báo cáo đã xử lý
+            loadResolvedReports();
+        }
     }
 
     private void initializeViews() {
