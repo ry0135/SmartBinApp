@@ -459,8 +459,7 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
                     String errorMessage = "Lỗi khi gửi đánh giá";
                     if (response.code() == 400) {
                         errorMessage = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
-                        // Thử gửi với format khác nếu lỗi 400
-                        tryAlternativeFeedbackFormat(feedback);
+                        saveFeedbackLocally(feedback);
                     } else if (response.code() == 401) {
                         errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
                         saveFeedbackLocally(feedback);
@@ -498,41 +497,6 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
                 }
             }
         });
-    }
-
-    private void tryAlternativeFeedbackFormat(Feedback originalFeedback) {
-        try {
-            // Tạo feedback với format khác
-            Feedback alternativeFeedback = new Feedback();
-            alternativeFeedback.setAccountId(originalFeedback.getAccountId());
-            alternativeFeedback.setWardId(originalFeedback.getWardId());
-            alternativeFeedback.setRating(originalFeedback.getRating());
-            alternativeFeedback.setComment(originalFeedback.getComment());
-            alternativeFeedback.setReportId(originalFeedback.getReportId());
-
-
-            apiService.createFeedback(alternativeFeedback).enqueue(new Callback<Feedback>() {
-                @Override
-                public void onResponse(Call<Feedback> call, Response<Feedback> response) {
-                    if (response.isSuccessful() && response.body() != null) {
-                        showToast("Đánh giá đã được gửi thành công (format thay thế)");
-                        finish();
-                    } else {
-                        saveFeedbackLocally(originalFeedback);
-                        showToast("Không thể gửi đánh giá. Đã lưu offline để gửi lại sau.");
-                    }
-                }
-
-                @Override
-                public void onFailure(Call<Feedback> call, Throwable t) {
-                    saveFeedbackLocally(originalFeedback);
-                    showToast("Lỗi kết nối. Đã lưu đánh giá offline.");
-                }
-            });
-        } catch (Exception e) {
-            saveFeedbackLocally(originalFeedback);
-            showToast("Lỗi xử lý. Đã lưu đánh giá offline.");
-        }
     }
 
     private void showLoading(boolean show) {
