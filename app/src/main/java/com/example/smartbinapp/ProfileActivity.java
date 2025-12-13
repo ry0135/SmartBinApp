@@ -34,7 +34,7 @@ public class ProfileActivity extends AppCompatActivity {
     private ApiService apiService;
     private SharedPreferences prefs;
     private Account currentAccount; // Dùng để lưu account lấy từ server
-
+    private static final int ROLE_TO_HIDE_TASK = 4;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,7 +80,7 @@ public class ProfileActivity extends AppCompatActivity {
 
                     tvUserName.setText(currentAccount.getFullName());
                     tvEmail.setText(currentAccount.getEmail());
-
+                    handleTaskButtonVisibility(currentAccount.getRole());
                     // ✅ Nếu có avatarUrl → load bằng Glide
                     if (currentAccount.getAvatarUrl() != null && !currentAccount.getAvatarUrl().isEmpty()) {
                         Glide.with(ProfileActivity.this)
@@ -118,7 +118,15 @@ public class ProfileActivity extends AppCompatActivity {
             }
         });
     }
-
+    private void handleTaskButtonVisibility(int userRole) {
+        if (userRole == ROLE_TO_HIDE_TASK) {
+            // Nếu role là 4, ẩn nút
+            btnShowTask.setVisibility(View.GONE);
+        } else {
+            // Ngược lại, hiện nút (hoặc giữ nguyên trạng thái default)
+            btnShowTask.setVisibility(View.VISIBLE);
+        }
+    }
 
     private void setupMenuClick() {
         itemEditProfile.setOnClickListener(v -> {
@@ -180,15 +188,18 @@ public class ProfileActivity extends AppCompatActivity {
         btnReport.setOnClickListener(v -> {
             animateButtonClick(v);
             setActiveTab(btnReport, true);
-            startActivity(new Intent(ProfileActivity.this, TaskSummaryActivity.class));
+            startActivity(new Intent(ProfileActivity.this, ReportsListActivity.class));
             finish();
         });
 
         btnShowTask.setOnClickListener(v -> {
-            animateButtonClick(v);
-            setActiveTab(btnShowTask, true);
-            startActivity(new Intent(ProfileActivity.this, TaskSummaryActivity.class));
-            finish();
+            // Chỉ xử lý khi nút này HIỆN (vì có thể nó đã bị ẩn)
+            if (btnShowTask.getVisibility() == View.VISIBLE) {
+                animateButtonClick(v);
+                setActiveTab(btnShowTask, true);
+                startActivity(new Intent(ProfileActivity.this, TaskSummaryActivity.class));
+                finish();
+            }
         });
 
         btnAccount.setOnClickListener(v -> {

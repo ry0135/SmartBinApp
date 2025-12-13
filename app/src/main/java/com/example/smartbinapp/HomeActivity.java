@@ -195,6 +195,14 @@ public class HomeActivity extends AppCompatActivity {
         btnViewDetail.setOnClickListener(v -> {
             Intent intent = new Intent(HomeActivity.this, BinDetailActivity.class);
             intent.putExtra("binId", bin.getBinId());
+            intent.putExtra("binCode", bin.getBinCode());
+            intent.putExtra("fill", bin.getCurrentFill());
+            intent.putExtra("street", bin.getStreet());
+            intent.putExtra("ward", bin.getWardName());
+            intent.putExtra("province", bin.getProvinceName());
+            intent.putExtra("lat", bin.getLatitude());
+            intent.putExtra("lng", bin.getLongitude());
+            intent.putExtra("status", bin.getStatus());
             startActivity(intent);
             dialog.dismiss();
         });

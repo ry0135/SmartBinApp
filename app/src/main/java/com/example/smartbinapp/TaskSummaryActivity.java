@@ -34,6 +34,13 @@ public class TaskSummaryActivity extends AppCompatActivity {
     private LinearLayout btnHome, btnReport, btnShowTask, btnAccount;
     private LinearLayout tvEmptyState;
 
+    // FILTER UI
+    private TextView filterAll, filterDoing, filterCompleted, filterCancelled;
+
+    // Data lists
+    private List<TaskSummary> fullList = new ArrayList<>();
+    private List<TaskSummary> filteredList = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,6 +53,7 @@ public class TaskSummaryActivity extends AppCompatActivity {
 
         initializeViews();
         setupClickListeners();
+        setupFilterListeners();
         loadTaskSummaries();
     }
 
@@ -57,6 +65,12 @@ public class TaskSummaryActivity extends AppCompatActivity {
         btnShowTask = findViewById(R.id.btn_showtask);
         btnAccount = findViewById(R.id.btn_account);
 
+        // FILTER BUTTONS
+        filterAll = findViewById(R.id.filterAll);
+        filterDoing = findViewById(R.id.filterDoing);
+        filterCompleted = findViewById(R.id.filterCompleted);
+        filterCancelled = findViewById(R.id.filterCancelled);
+
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         // Set active tab
@@ -66,7 +80,6 @@ public class TaskSummaryActivity extends AppCompatActivity {
     private void loadTaskSummaries() {
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
-        // Hiển thị loading
         showLoading(true);
 
         apiService.getTaskSummaries(workerId).enqueue(new Callback<List<TaskSummary>>() {
@@ -75,17 +88,10 @@ public class TaskSummaryActivity extends AppCompatActivity {
                 showLoading(false);
 
                 if (response.isSuccessful() && response.body() != null) {
-                    List<TaskSummary> taskList = response.body();
+                    fullList = response.body();  // lưu danh sách gốc
 
-                    if (taskList.isEmpty()) {
-                        showEmptyState(true);
-                    } else {
-                        showEmptyState(false);
-                        adapter = new TaskSummaryAdapter(taskList, summary -> {
-                            openTaskDetail(summary);
-                        });
-                        recyclerView.setAdapter(adapter);
-                    }
+                    applyFilter("ALL"); // lọc mặc định
+
                 } else {
                     showEmptyState(true);
                     Toast.makeText(TaskSummaryActivity.this, "Không tải được dữ liệu", Toast.LENGTH_SHORT).show();
@@ -108,12 +114,10 @@ public class TaskSummaryActivity extends AppCompatActivity {
         intent.putExtra("taskName", summary.getNote());
         intent.putExtra("priority", summary.getMinPriority());
         intent.putExtra("status", summary.getStatus());
-//        intent.putExtra("status", summary.ge());
         startActivity(intent);
     }
 
     private void showLoading(boolean show) {
-        // Bạn có thể thêm ProgressBar nếu cần
         if (show) {
             recyclerView.setVisibility(View.GONE);
             tvEmptyState.setVisibility(View.GONE);
@@ -130,6 +134,71 @@ public class TaskSummaryActivity extends AppCompatActivity {
         }
     }
 
+    // ----------------------------
+    // FILTER FUNCTION
+    // ----------------------------
+    private void setupFilterListeners() {
+        filterAll.setOnClickListener(v -> applyFilter("ALL"));
+        filterDoing.setOnClickListener(v -> applyFilter("DOING"));
+        filterCompleted.setOnClickListener(v -> applyFilter("COMPLETED"));
+        filterCancelled.setOnClickListener(v -> applyFilter("CANCELLED"));
+
+    }
+
+    private void applyFilter(String type) {
+        filteredList.clear();
+
+        switch (type) {
+            case "DOING":
+                for (TaskSummary t : fullList)
+                    if ("DOING".equalsIgnoreCase(t.getStatus()))
+                        filteredList.add(t);
+                break;
+
+            case "COMPLETED":
+                for (TaskSummary t : fullList)
+                    if ("COMPLETED".equalsIgnoreCase(t.getStatus()))
+                        filteredList.add(t);
+                break;
+            case "CANCELLED":
+                for (TaskSummary t : fullList)
+                    if ("CANCELLED".equalsIgnoreCase(t.getStatus()))
+                        filteredList.add(t);
+                break;
+
+            default:
+                filteredList.addAll(fullList);
+        }
+
+        updateFilterUI(type);
+
+        adapter = new TaskSummaryAdapter(filteredList, summary -> openTaskDetail(summary));
+        recyclerView.setAdapter(adapter);
+
+        showEmptyState(filteredList.isEmpty());
+    }
+
+    private void updateFilterUI(String active) {
+
+        filterAll.setBackgroundResource(active.equals("ALL") ?
+                R.drawable.filter_active : R.drawable.filter_inactive);
+        filterDoing.setBackgroundResource(active.equals("DOING") ?
+                R.drawable.filter_active : R.drawable.filter_inactive);
+        filterCompleted.setBackgroundResource(active.equals("COMPLETED") ?
+                R.drawable.filter_active : R.drawable.filter_inactive);
+        filterCancelled.setBackgroundResource(active.equals("CANCELLED") ?
+                R.drawable.filter_active : R.drawable.filter_inactive);
+
+        filterAll.setTextColor(active.equals("ALL") ? 0xFFFFFFFF : 0xFF777777);
+        filterDoing.setTextColor(active.equals("DOING") ? 0xFFFFFFFF : 0xFF777777);
+        filterCompleted.setTextColor(active.equals("COMPLETED") ? 0xFFFFFFFF : 0xFF777777);
+        filterCancelled.setTextColor(active.equals("CANCELLED") ? 0xFFFFFFFF : 0xFF777777);
+
+    }
+
+    // ----------------------------
+    // BOTTOM NAVIGATION
+    // ----------------------------
     private void setupClickListeners() {
         btnHome.setOnClickListener(v -> {
             animateButtonClick(v);
@@ -143,7 +212,6 @@ public class TaskSummaryActivity extends AppCompatActivity {
 
         btnShowTask.setOnClickListener(v -> {
             animateButtonClick(v);
-            // Đã ở trang nhiệm vụ, chỉ refresh
             loadTaskSummaries();
         });
 
@@ -175,6 +243,7 @@ public class TaskSummaryActivity extends AppCompatActivity {
         ObjectAnimator scaleDownY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 0.95f);
         scaleDownX.setDuration(100);
         scaleDownY.setDuration(100);
+
         scaleDownX.start();
         scaleDownY.start();
 
@@ -184,6 +253,7 @@ public class TaskSummaryActivity extends AppCompatActivity {
         scaleUpY.setDuration(100);
         scaleUpX.setStartDelay(100);
         scaleUpY.setStartDelay(100);
+
         scaleUpX.start();
         scaleUpY.start();
     }
@@ -191,7 +261,6 @@ public class TaskSummaryActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh data khi quay lại màn hình
         loadTaskSummaries();
     }
 }

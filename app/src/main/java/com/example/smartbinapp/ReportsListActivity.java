@@ -1,5 +1,6 @@
 package com.example.smartbinapp;
 
+import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -100,10 +101,8 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
     private void setupBottomNavigation() {
 
         btnHome.setOnClickListener(v -> {
-            Intent intent = new Intent(this, HomeActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(intent);
-            finish();
+            animateButtonClick(v);
+            navigateToActivity(HomeActivity.class);
         });
 
         btnReport.setOnClickListener(v -> Toast.makeText(this, "Đang ở trang Báo cáo", Toast.LENGTH_SHORT).show());
@@ -120,7 +119,28 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
             finish();
         });
     }
+    private void animateButtonClick(View view) {
+        ObjectAnimator scaleDownX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 0.95f);
+        ObjectAnimator scaleDownY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 0.95f);
+        scaleDownX.setDuration(100);
+        scaleDownY.setDuration(100);
+        scaleDownX.start();
+        scaleDownY.start();
 
+        ObjectAnimator scaleUpX = ObjectAnimator.ofFloat(view, "scaleX", 0.95f, 1f);
+        ObjectAnimator scaleUpY = ObjectAnimator.ofFloat(view, "scaleY", 0.95f, 1f);
+        scaleUpX.setDuration(100);
+        scaleUpY.setDuration(100);
+        scaleUpX.setStartDelay(100);
+        scaleUpY.setStartDelay(100);
+        scaleUpX.start();
+        scaleUpY.start();
+    }
+    private void navigateToActivity(Class<?> cls) {
+        Intent intent = new Intent(ReportsListActivity.this, cls);
+        startActivity(intent);
+        finish();
+    }
     private void setupTabLayout() {
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override

@@ -71,12 +71,18 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
 
         try {
             SimpleDateFormat input = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-            SimpleDateFormat output = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
             Date date = input.parse(raw);
 
-            holder.tvDate.setText(output.format(date));
+            // Định dạng riêng ngày - giờ
+            SimpleDateFormat formatDate = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+            SimpleDateFormat formatTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
+
+            holder.tvDate.setText(formatDate.format(date));
+            holder.tvTime.setText(formatTime.format(date));
+
         } catch (Exception e) {
-            holder.tvDate.setText(raw); // fallback
+            holder.tvDate.setText(raw);
+            holder.tvTime.setText(""); // fallback
         }
         // Trạng thái
         String status = item.getStatus();
@@ -92,30 +98,37 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
             switch (normalized) {
                 case "COMPLETED":
                     statusVi = "Đã hoàn thành";
-                    color = Color.parseColor("#4CAF50");
+                    holder.tvStatus.setBackgroundResource(R.drawable.status_chip_green);
                     break;
-                case "OPEN":
-                    statusVi = "Đang mở";
-                    color = Color.parseColor("#FFC107");
-                    break;
+
                 case "DOING":
                     statusVi = "Đang thực hiện";
-                    color = Color.parseColor("#9C27B0");
+                    holder.tvStatus.setBackgroundResource(R.drawable.status_chip_purple);
+                    break;
+
+                case "OPEN":
+                    statusVi = "Đang mở";
+                    holder.tvStatus.setBackgroundResource(R.drawable.status_chip_yellow);
                     break;
                 case "CANCELLED":
                     statusVi = "Đã hủy";
-                    color = Color.parseColor("#F44336");
+                    holder.tvStatus.setBackgroundResource(R.drawable.status_chip_red);
                     break;
+
+                case "ISSUE":
+                    statusVi = "Gặp sự cố";
+                    holder.tvStatus.setBackgroundResource(R.drawable.status_chip_red);
+                    break;
+
                 default:
-                    statusVi = "Không xác định (" + normalized + ")";
-                    color = Color.GRAY;
+                    statusVi = "Không xác định";
+                    holder.tvStatus.setBackgroundResource(R.drawable.status_chip_yellow);
                     break;
             }
         }
 
-        holder.tvStatus.setText("Trạng thái: " + statusVi);
+        holder.tvStatus.setText(statusVi);
         holder.tvStatus.setTextColor(Color.WHITE);
-        holder.tvStatus.setBackgroundColor(color);
         holder.tvStatus.setPadding(16, 8, 16, 8);
         holder.tvStatus.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
 
@@ -124,8 +137,15 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
             holder.btnAction.setVisibility(View.VISIBLE);
             holder.btnAction.setText("Nhận nhiệm vụ");
             holder.btnAction.setBackgroundColor(Color.parseColor("#4CAF50"));
+
+            holder.btnCancel.setVisibility(View.VISIBLE);
+            holder.btnCancel.setText("Hủy nhiệm vụ");
+            holder.btnCancel.setBackgroundColor(Color.parseColor("#ff0033"));
+
+
         } else {
             holder.btnAction.setVisibility(View.GONE);
+            holder.btnCancel.setVisibility(View.GONE);
         }
 
         // Sự kiện click nút
@@ -135,8 +155,22 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
             }
         });
 
+        holder.btnCancel.setOnClickListener(v -> {
+            if ("OPEN".equalsIgnoreCase(status)) {
+                showConfirmDialog(item, "CANCELLED", "Hủy nhiệm vụ này?");
+            }
+        });
+
         // Sự kiện click item mở chi tiết
-        holder.itemView.setOnClickListener(v -> listener.onItemClick(item));
+        holder.itemView.setOnClickListener(v -> {
+            if ("CANCELLED".equalsIgnoreCase(item.getStatus())) {
+                Toast.makeText(v.getContext(), "❌ Nhiệm vụ đã bị hủy – không thể xem chi tiết", Toast.LENGTH_SHORT).show();
+                return; // ⛔ KHÔNG CHO MỞ DETAIL
+            }
+
+            listener.onItemClick(item); // ⬅️ Chỉ mở nếu không bị hủy
+        });
+
     }
 
     // 📅 Hàm định dạng ngày ISO → dd/MM/yyyy
@@ -191,8 +225,8 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView tvNote, tvPriority, tvStatus, tvDate; // 🆕 thêm tvDate
-        Button btnAction;
+        TextView tvNote, tvPriority, tvStatus, tvDate, tvTime; // 🆕 thêm tvDate
+        Button btnAction, btnCancel;
 
         ViewHolder(View v) {
             super(v);
@@ -200,7 +234,10 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
             tvPriority = v.findViewById(R.id.tvPriority);
             tvStatus = v.findViewById(R.id.tvStatus);
             tvDate = v.findViewById(R.id.tvDate); // 🆕 ánh xạ TextView ngày
+            tvTime = v.findViewById(R.id.tvTime);
             btnAction = v.findViewById(R.id.btnAction);
+            btnCancel = v.findViewById(R.id.btnCancel);
+
         }
     }
 }

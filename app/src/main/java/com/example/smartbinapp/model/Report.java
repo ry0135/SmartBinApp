@@ -19,7 +19,7 @@ public class Report {
     private Date createdAt;
     private Date updatedAt;
     private Date resolvedAt;
-    private List<String> imageUrls;
+    private List<String> images;
 
     private boolean reviewed;
 
@@ -136,12 +136,12 @@ public class Report {
         this.resolvedAt = resolvedAt;
     }
 
-    public List<String> getImageUrls() {
-        return imageUrls;
+    public List<String> getImages() {
+        return images;
     }
 
-    public void setImageUrls(List<String> imageUrls) {
-        this.imageUrls = imageUrls;
+    public void setImages(List<String> images) {
+        this.images = images;
     }
 
     public String getBinCode() {

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@android:color/white"
+    android:layout_margin="16dp">
+
+    <ImageView
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:src="@android:drawable/ic_dialog_alert"
+        android:layout_gravity="center"
+        android:tint="@color/red_500" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Báo cáo sự cố"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="14dp"/>
+
+    <EditText
+        android:id="@+id/edtReason"
+        android:layout_width="match_parent"
+        android:layout_height="160dp"
+        android:gravity="top"
+        android:hint="Mô tả lý do..."
+        android:padding="14dp"
+        android:textSize="15sp"
+        android:layout_marginTop="18dp"
+        android:background="@drawable/bg_edittext" />
+
+    <Button
+        android:id="@+id/btnSubmitReason"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="Xác nhận báo cáo"
+        android:textAllCaps="false"
+        android:layout_marginTop="22dp"
+        android:textSize="16sp"
+        android:backgroundTint="@color/red_500"
+        android:textColor="@android:color/white"/>
+</LinearLayout>
