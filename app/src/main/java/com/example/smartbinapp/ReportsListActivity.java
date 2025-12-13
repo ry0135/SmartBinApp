@@ -316,9 +316,8 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
             case 1: // Đang xử lý
                 filteredReports = new ArrayList<>();
                 for (Report report : allReports) {
-                    if ("RECEIVED".equals(report.getStatus()) ||
-                        "ASSIGNED".equals(report.getStatus()) ||
-                        "PROCESSING".equals(report.getStatus())) {
+                    if (
+                        "IN_PROGRESS".equals(report.getStatus())) {
                         filteredReports.add(report);
                     }
                 }

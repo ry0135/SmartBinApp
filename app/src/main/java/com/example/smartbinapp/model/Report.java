@@ -169,10 +169,10 @@ public class Report {
         switch (status) {
             case "RECEIVED":
                 return "Đã tiếp nhận";
-            case "ASSIGNED":
-                return "Đã phân công";
-            case "PROCESSING":
+            case "IN_PROGRESS":
                 return "Đang xử lý";
+            case "RESOLVED":
+                return "Đã xử lý ";
             case "DONE":
                 return "Hoàn thành";
             case "CANCELLED":
