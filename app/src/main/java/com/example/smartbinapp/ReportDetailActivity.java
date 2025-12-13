@@ -252,7 +252,7 @@ public class ReportDetailActivity extends AppCompatActivity {
 
         // Show rate button if report is done
         // Kiểm tra trạng thái báo cáo là DONE
-        if (report.getStatus() != null && "DONE".equals(report.getStatus())) {
+        if (report.getStatus() != null && "DONE".equals(report.getStatus()) || "RESOLVED".equals(report.getStatus())) {
             btnRate.setVisibility(View.VISIBLE);
 
             // Kiểm tra xem đã đánh giá hay chưa (biến isReviewed từ API trả về)
@@ -307,7 +307,7 @@ public class ReportDetailActivity extends AppCompatActivity {
                 case "ASSIGNED":
                     currentStepIndex = 2;
                     break;
-                case "PROCESSING":
+                case "RESOLVED":
                     currentStepIndex = 3;
                     break;
                 case "DONE":
