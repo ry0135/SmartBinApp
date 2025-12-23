@@ -34,6 +34,8 @@ import retrofit2.Response;
 
 public class ReportsListActivity extends AppCompatActivity implements ReportsAdapter.OnReportClickListener {
 
+    private static final int REQUEST_CODE_REPORT_DETAIL = 1001; // ✅ Thêm constant
+
     private Toolbar toolbar;
     private TabLayout tabLayout;
     private SwipeRefreshLayout swipeRefreshLayout;
@@ -90,7 +92,7 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
         btnAccount = findViewById(R.id.btn_account);
 
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
-        int savedRole = prefs.getInt("role", 0); // Mặc định là 0 nếu chưa có
+        int savedRole = prefs.getInt("role", 0);
 
         if (savedRole == 4) {
             btnShowTask.setVisibility(View.GONE);
@@ -99,7 +101,6 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
     }
 
     private void setupBottomNavigation() {
-
         btnHome.setOnClickListener(v -> {
             animateButtonClick(v);
             navigateToActivity(HomeActivity.class);
@@ -119,6 +120,7 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
             finish();
         });
     }
+
     private void animateButtonClick(View view) {
         ObjectAnimator scaleDownX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 0.95f);
         ObjectAnimator scaleDownY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 0.95f);
@@ -136,11 +138,13 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
         scaleUpX.start();
         scaleUpY.start();
     }
+
     private void navigateToActivity(Class<?> cls) {
         Intent intent = new Intent(ReportsListActivity.this, cls);
         startActivity(intent);
         finish();
     }
+
     private void setupTabLayout() {
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
@@ -175,7 +179,6 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
 
     private void loadReports() {
         showLoading(true);
-        // Gọi raw để tự parse JSON bọc {status, message, data}
         apiService.getUserReportsRaw(userId).enqueue(new retrofit2.Callback<okhttp3.ResponseBody>() {
             @Override
             public void onResponse(retrofit2.Call<okhttp3.ResponseBody> call, retrofit2.Response<okhttp3.ResponseBody> response) {
@@ -316,8 +319,7 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
             case 1: // Đang xử lý
                 filteredReports = new ArrayList<>();
                 for (Report report : allReports) {
-                    if (
-                        "IN_PROGRESS".equals(report.getStatus())) {
+                    if ("IN_PROGRESS".equals(report.getStatus())) {
                         filteredReports.add(report);
                     }
                 }
@@ -326,7 +328,7 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
                 filteredReports = new ArrayList<>();
                 for (Report report : allReports) {
                     if ("DONE".equalsIgnoreCase(report.getStatus()) ||
-                        "RESOLVED".equalsIgnoreCase(report.getStatus())) {
+                            "RESOLVED".equalsIgnoreCase(report.getStatus())) {
                         filteredReports.add(report);
                     }
                 }
@@ -339,8 +341,6 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
         adapter.setReports(filteredReports);
         showEmpty(filteredReports.isEmpty());
     }
-
-
 
     private void showLoading(boolean show) {
         progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
@@ -361,7 +361,45 @@ public class ReportsListActivity extends AppCompatActivity implements ReportsAda
     public void onReportClick(Report report) {
         Intent intent = new Intent(this, ReportDetailActivity.class);
         intent.putExtra("report_id", report.getReportId());
-        startActivity(intent);
+        startActivityForResult(intent, REQUEST_CODE_REPORT_DETAIL); // ✅ Dùng startActivityForResult
+    }
+
+    // ✅ Nhận kết quả từ ReportDetailActivity
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CODE_REPORT_DETAIL && resultCode == RESULT_OK) {
+            if (data != null && data.getBooleanExtra("feedback_submitted", false)) {
+                int reportId = data.getIntExtra("report_id", -1);
+                String newStatus = data.getStringExtra("new_status");
+
+                Log.d("ReportsListActivity", "Feedback submitted for report: " + reportId + ", new status: " + newStatus);
+
+                // ✅ Update report trong list
+                updateReportInList(reportId, newStatus);
+
+            }
+        }
+    }
+
+    // ✅ Method để update report trong list
+    private void updateReportInList(int reportId, String newStatus) {
+        boolean updated = false;
+
+        // Update trong allReports
+        for (Report report : allReports) {
+            if (report.getReportId() == reportId) {
+                report.setStatus(newStatus);
+                updated = true;
+                break;
+            }
+        }
+
+        if (updated) {
+            // Refresh hiển thị theo tab hiện tại
+            filterReports(tabLayout.getSelectedTabPosition());
+        }
     }
 
     @Override

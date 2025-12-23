@@ -20,12 +20,8 @@ import com.example.smartbinapp.model.Report;
 import com.example.smartbinapp.network.ApiResponse;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
- 
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 
 import retrofit2.Call;
@@ -33,6 +29,8 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class ReportDetailActivity extends AppCompatActivity {
+
+    private static final int REQUEST_CODE_FEEDBACK = 1001; // ✅ Thêm constant
 
     private Toolbar toolbar;
     private TextView tvStatus;
@@ -111,8 +109,7 @@ public class ReportDetailActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setDisplayShowHomeEnabled(true);
         }
-        
-        // Set up home button click listener
+
         Button btnBackToHome = findViewById(R.id.btnBackToHome);
         btnBackToHome.setOnClickListener(v -> {
             Intent intent = new Intent(ReportDetailActivity.this, HomeActivity.class);
@@ -123,7 +120,7 @@ public class ReportDetailActivity extends AppCompatActivity {
     }
 
     private void setupStepView() {
-        // Không cần cấu hình đặc biệt cho chỉ báo bước đơn giản
+        // Không cần cấu hình đặc biệt
     }
 
     private void setupImagesRecyclerView() {
@@ -136,14 +133,11 @@ public class ReportDetailActivity extends AppCompatActivity {
         apiService.getReportDetails(reportId).enqueue(new Callback<ApiResponse<Report>>() {
             @Override
             public void onResponse(Call<ApiResponse<Report>> call, Response<ApiResponse<Report>> response) {
-
                 showLoading(false);
 
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-
-                    report = response.body().getData();   // <-- LẤY ĐÚNG DỮ LIỆU REPORT
+                    report = response.body().getData();
                     displayReportDetails();
-
                 } else {
                     Toast.makeText(ReportDetailActivity.this, "Không tải được báo cáo!", Toast.LENGTH_SHORT).show();
                 }
@@ -163,7 +157,7 @@ public class ReportDetailActivity extends AppCompatActivity {
             finish();
             return;
         }
-        
+
         // Set status with appropriate color
         tvStatus.setText(report.getStatusVietnamese());
         int statusColor;
@@ -195,7 +189,6 @@ public class ReportDetailActivity extends AppCompatActivity {
         try {
             tvStatus.getBackground().setTint(ContextCompat.getColor(this, statusColor));
         } catch (Exception e) {
-            // Xử lý trường hợp background null hoặc không hỗ trợ tint
             tvStatus.setBackgroundColor(ContextCompat.getColor(this, statusColor));
         }
 
@@ -232,7 +225,7 @@ public class ReportDetailActivity extends AppCompatActivity {
 
         // Set bin info
         tvBinCode.setText("Mã thùng: " + (report.getBinCode() != null ? report.getBinCode() : ""));
-        
+
         String address = "";
         if (report.getBinAddress() != null && !report.getBinAddress().isEmpty()) {
             address = report.getBinAddress();
@@ -247,45 +240,108 @@ public class ReportDetailActivity extends AppCompatActivity {
             tvNoImages.setVisibility(View.VISIBLE);
         }
 
-        // Update step indicators based on status
+        // Update step indicators
         updateStepView();
 
         // Show rate button if report is done
-        // Kiểm tra trạng thái báo cáo là DONE
-        if (report.getStatus() != null && "DONE".equals(report.getStatus()) || "RESOLVED".equals(report.getStatus())) {
+        if (report.getStatus() != null && ("DONE".equals(report.getStatus()) || "RESOLVED".equals(report.getStatus()))) {
             btnRate.setVisibility(View.VISIBLE);
 
-            // Kiểm tra xem đã đánh giá hay chưa (biến isReviewed từ API trả về)
             if (report.isReviewed()) {
-                // TRƯỜNG HỢP 1: Đã hoàn thành và ĐÃ ĐÁNH GIÁ
-                btnRate.setText("Đã đánh giá");       // Đổi tên nút
-                btnRate.setEnabled(false);            // Vô hiệu hóa nút (không cho bấm)
-
-                // (Tùy chọn) Đổi màu nút sang xám để người dùng biết là không bấm được
-                // btnRate.setBackgroundTintList(ColorStateList.valueOf(Color.GRAY));
-                // Hoặc set background resource khác: btnRate.setBackgroundResource(R.drawable.btn_disabled);
-                btnRate.setAlpha(0.5f); // Cách nhanh nhất để làm mờ nút đi
+                // Đã đánh giá
+                btnRate.setText("Đã đánh giá");
+                btnRate.setEnabled(false);
+                btnRate.setAlpha(0.5f);
             } else {
-                // TRƯỜNG HỢP 2: Đã hoàn thành nhưng CHƯA ĐÁNH GIÁ
-                btnRate.setText("Đánh giá dịch vụ");  // Đảm bảo tên nút đúng
-                btnRate.setEnabled(true);             // Cho phép bấm
-                btnRate.setAlpha(1.0f);               // Đậm lên lại
+                // Chưa đánh giá
+                btnRate.setText("Đánh giá dịch vụ");
+                btnRate.setEnabled(true);
+                btnRate.setAlpha(1.0f);
 
                 btnRate.setOnClickListener(v -> {
                     Intent intent = new Intent(ReportDetailActivity.this, FeedbackActivity.class);
                     intent.putExtra("report_id", reportId);
-                    // Kiểm tra null an toàn hơn cho binId
                     intent.putExtra("bin_id", report.getBinId() != null ? report.getBinId() : -1);
-                    // Gửi kèm mô tả để màn Feedback hiển thị tên báo cáo
-                    intent.putExtra("report_description",
-                            report.getDescription() != null ? report.getDescription() : "");
-                    startActivity(intent);
+                    intent.putExtra("report_description", report.getDescription() != null ? report.getDescription() : "");
+                    startActivityForResult(intent, REQUEST_CODE_FEEDBACK); // ✅ Dùng startActivityForResult
                 });
             }
-
         } else {
-            // TRƯỜNG HỢP 3: Chưa hoàn thành (PENDING, PROCESSING...)
             btnRate.setVisibility(View.GONE);
+        }
+    }
+
+    // ✅ Nhận kết quả từ FeedbackActivity
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CODE_FEEDBACK && resultCode == RESULT_OK) {
+            if (data != null && data.getBooleanExtra("feedback_submitted", false)) {
+                int reportId = data.getIntExtra("report_id", -1);
+                String newStatus = data.getStringExtra("new_status");
+
+                android.util.Log.d("ReportDetailActivity", "Feedback submitted, updating UI");
+
+                // ✅ Update UI của ReportDetailActivity
+                updateReportStatusUI(newStatus);
+
+                // ✅ Truyền kết quả về ReportsListActivity
+                Intent resultIntent = new Intent();
+                resultIntent.putExtra("feedback_submitted", true);
+                resultIntent.putExtra("report_id", reportId);
+                resultIntent.putExtra("new_status", newStatus);
+                setResult(RESULT_OK, resultIntent);
+
+                Toast.makeText(this, "Cảm ơn bạn đã đánh giá!", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    // ✅ Method để update UI trong ReportDetailActivity
+    private void updateReportStatusUI(String newStatus) {
+        if (report != null) {
+            report.setStatus(newStatus);
+            report.setReviewed(true); // Đánh dấu đã đánh giá
+        }
+
+        // Update TextView status
+        if (tvStatus != null) {
+            tvStatus.setText(getStatusVietnamese(newStatus));
+
+            // Đổi màu status badge
+            int statusColor = "DONE".equals(newStatus) ?
+                    android.R.color.holo_green_dark :
+                    android.R.color.holo_blue_dark;
+
+            try {
+                tvStatus.getBackground().setTint(ContextCompat.getColor(this, statusColor));
+            } catch (Exception e) {
+                tvStatus.setBackgroundColor(ContextCompat.getColor(this, statusColor));
+            }
+        }
+
+        // Ẩn/disable nút đánh giá
+        if (btnRate != null) {
+            btnRate.setText("Đã đánh giá");
+            btnRate.setEnabled(false);
+            btnRate.setAlpha(0.5f);
+        }
+
+        // Update step view
+        updateStepView();
+    }
+
+    private String getStatusVietnamese(String status) {
+        if (status == null) return "";
+        switch (status) {
+            case "RECEIVED": return "Đã tiếp nhận";
+            case "ASSIGNED": return "Đã phân công";
+            case "IN_PROGRESS": return "Đang xử lý";
+            case "DONE": return "Hoàn thành";
+            case "RESOLVED": return "Đã giải quyết";
+            case "CANCELLED": return "Đã hủy";
+            default: return status;
         }
     }
 
@@ -328,11 +384,11 @@ public class ReportDetailActivity extends AppCompatActivity {
             for (int i = 0; i < steps.length; i++) {
                 int colorRes;
                 if (i < currentStepIndex) {
-                    colorRes = android.R.color.holo_green_dark; // đã hoàn thành
+                    colorRes = android.R.color.holo_green_dark;
                 } else if (i == currentStepIndex) {
-                    colorRes = android.R.color.holo_blue_dark; // đang ở bước này
+                    colorRes = android.R.color.holo_blue_dark;
                 } else {
-                    colorRes = android.R.color.darker_gray; // chưa tới
+                    colorRes = android.R.color.darker_gray;
                 }
                 try {
                     steps[i].getBackground().setTint(ContextCompat.getColor(this, colorRes));
@@ -341,7 +397,7 @@ public class ReportDetailActivity extends AppCompatActivity {
                 }
             }
         } catch (Exception e) {
-            System.out.println("Error updating step indicators: " + e.getMessage());
+            android.util.Log.e("ReportDetailActivity", "Error updating step indicators: " + e.getMessage());
             if (stepContainer != null) {
                 stepContainer.setVisibility(View.GONE);
             }
@@ -362,5 +418,4 @@ public class ReportDetailActivity extends AppCompatActivity {
         }
         return super.onOptionsItemSelected(item);
     }
-
 }

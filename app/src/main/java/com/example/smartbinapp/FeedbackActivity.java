@@ -39,7 +39,7 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
     private TextView tvRatingDescription, tvSelectedReport;
     private TextInputLayout tilComment;
     private TextInputEditText etComment;
-    private Button btnSubmit, btnRetry;
+    private Button btnSubmit;
     private ProgressBar progressBar;
 
     private ApiService apiService;
@@ -48,8 +48,6 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
     private String selectedReportDescription = "";
     private ResolvedReportsAdapter reportsAdapter;
     private List<Report> resolvedReports = new ArrayList<>();
-    private int retryCount = 0;
-    private static final int MAX_RETRY = 2;
 
     // Khi được mở từ ReportDetailActivity, ta đã biết reportId cần đánh giá
     private Integer directReportId = null;
@@ -84,7 +82,7 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
                 finish();
                 return;
             }
-        } else {  
+        } else {
             showToast("Vui lòng đăng nhập để đánh giá");
             finish();
             return;
@@ -130,7 +128,6 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
         tilComment = findViewById(R.id.tilComment);
         etComment = findViewById(R.id.etComment);
         btnSubmit = findViewById(R.id.btnSubmit);
-        btnRetry = findViewById(R.id.btnRetry);
         progressBar = findViewById(R.id.progressBar);
     }
 
@@ -156,11 +153,6 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
             if (validateInputs()) {
                 submitFeedback();
             }
-        });
-
-        btnRetry.setOnClickListener(v -> {
-            btnRetry.setVisibility(View.GONE);
-            submitFeedback();
         });
     }
 
@@ -310,25 +302,25 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
     private void tryOldEndpoint() {
         android.util.Log.d("FeedbackActivity", "Trying old endpoint for reports");
         showLoading(true);
-        
+
         apiService.getUserReportsOld(String.valueOf(accountId)).enqueue(new Callback<List<Report>>() {
             @Override
             public void onResponse(Call<List<Report>> call, Response<List<Report>> response) {
                 showLoading(false);
                 android.util.Log.d("FeedbackActivity", "Old endpoint response code: " + response.code());
-                
+
                 if (response.isSuccessful() && response.body() != null) {
                     android.util.Log.d("FeedbackActivity", "Old endpoint received " + response.body().size() + " reports");
-                    
+
                     resolvedReports.clear();
                     for (Report report : response.body()) {
                         if ("RESOLVED".equalsIgnoreCase(report.getStatus())) {
                             resolvedReports.add(report);
                         }
                     }
-                    
+
                     reportsAdapter.notifyDataSetChanged();
-                    
+
                     if (resolvedReports.isEmpty()) {
                         showToast("Bạn chưa có báo cáo nào được xử lý để đánh giá");
                     } else {
@@ -350,17 +342,16 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
 
     @Override
     public void onReportClick(Report report) {
-
         selectedReportId = report.getReportId();
         selectedReportDescription = report.getDescription();
-        
+
         // Hiển thị thông tin report đã chọn
         tvSelectedReport.setText("Đã chọn: " + report.getDescription());
         tvSelectedReport.setVisibility(View.VISIBLE);
-        
+
         // Hiển thị form đánh giá
         findViewById(R.id.feedbackForm).setVisibility(View.VISIBLE);
-        
+
         showToast("Đã chọn báo cáo để đánh giá");
     }
 
@@ -394,13 +385,13 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
             showToast("Vui lòng chọn báo cáo để đánh giá");
             return false;
         }
-        
+
         int rating = (int) ratingBar.getRating();
         if (rating == 0) {
             showToast("Vui lòng chọn số sao đánh giá");
             return false;
         }
-        
+
         String comment = etComment.getText().toString().trim();
         if (comment.isEmpty()) {
             tilComment.setError("Vui lòng nhập nhận xét");
@@ -408,23 +399,19 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
         } else {
             tilComment.setError(null);
         }
-        
+
         return true;
     }
 
     private void submitFeedback() {
-        submitFeedbackWithRetry();
-    }
-
-    private void submitFeedbackWithRetry() {
         showLoading(true);
 
         Feedback feedback = new Feedback();
         feedback.setAccountId(accountId);
-        feedback.setWardId(1); // Default ward ID - có thể lấy từ report
+        // ✅ Không set wardId nữa - backend sẽ xử lý
         feedback.setRating((int) ratingBar.getRating());
         feedback.setComment(etComment.getText().toString().trim());
-        feedback.setReportId(selectedReportId); // Liên kết với report đã chọn
+        feedback.setReportId(selectedReportId);
 
         // Validate feedback before sending
         if (!feedback.isValid()) {
@@ -435,6 +422,12 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
         }
 
         // Log feedback data for debugging
+        android.util.Log.d("FeedbackActivity", "=== SUBMITTING FEEDBACK ===");
+        android.util.Log.d("FeedbackActivity", "accountId: " + feedback.getAccountId());
+        android.util.Log.d("FeedbackActivity", "rating: " + feedback.getRating());
+        android.util.Log.d("FeedbackActivity", "reportId: " + feedback.getReportId());
+        android.util.Log.d("FeedbackActivity", "comment: " + feedback.getComment());
+        android.util.Log.d("FeedbackActivity", "===========================");
 
         apiService.createFeedback(feedback).enqueue(new Callback<Feedback>() {
             @Override
@@ -444,6 +437,12 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
 
                 if (response.isSuccessful() && response.body() != null) {
                     showToast("Đánh giá đã được gửi thành công");
+
+                    Intent resultIntent = new Intent();
+                    resultIntent.putExtra("feedback_submitted", true);
+                    resultIntent.putExtra("report_id", selectedReportId);
+                    resultIntent.putExtra("new_status", "DONE"); // Status mới sau khi feedback
+                    setResult(RESULT_OK, resultIntent);
                     finish();
                 } else {
                     String errorBody = "";
@@ -453,48 +452,29 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
                             android.util.Log.e("FeedbackActivity", "Error response body: " + errorBody);
                         }
                     } catch (Exception e) {
-                        errorBody = "Không thể đọc lỗi chi tiết";
+                        android.util.Log.e("FeedbackActivity", "Cannot read error body: " + e.getMessage());
                     }
 
                     String errorMessage = "Lỗi khi gửi đánh giá";
                     if (response.code() == 400) {
                         errorMessage = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
-                        saveFeedbackLocally(feedback);
                     } else if (response.code() == 401) {
                         errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-                        saveFeedbackLocally(feedback);
                     } else if (response.code() == 404) {
-                        errorMessage = "Endpoint không tồn tại. Đã lưu đánh giá offline.";
-                        android.util.Log.w("FeedbackActivity", "Feedback endpoint 404, saving locally");
-                        saveFeedbackLocally(feedback);
+                        errorMessage = "Endpoint không tồn tại.";
                     } else if (response.code() == 500) {
                         errorMessage = "Lỗi server. Vui lòng thử lại sau.";
-                        saveFeedbackLocally(feedback);
-                    } else {
-                        saveFeedbackLocally(feedback);
                     }
 
-                    if (response.code() != 400) {
-                        showToast(errorMessage + " (Mã lỗi: " + response.code() + ")");
-                    }
+                    showToast(errorMessage + " (Mã lỗi: " + response.code() + ")");
                 }
             }
 
             @Override
             public void onFailure(Call<Feedback> call, Throwable t) {
                 showLoading(false);
-
-                // Thử lại nếu chưa đạt max retry
-                if (retryCount < MAX_RETRY) {
-                    retryCount++;
-                    // Delay 2 giây trước khi retry
-                    new android.os.Handler().postDelayed(() -> submitFeedbackWithRetry(), 2000);
-                } else {
-                    // Lưu feedback offline và hiển thị nút retry
-                    saveFeedbackLocally(feedback);
-                    btnRetry.setVisibility(View.VISIBLE);
-                    showToast("Lỗi kết nối. Đã lưu đánh giá offline để gửi lại sau.");
-                }
+                android.util.Log.e("FeedbackActivity", "Feedback call failed: " + t.getMessage());
+                showToast("Lỗi kết nối: " + t.getMessage());
             }
         });
     }
@@ -502,30 +482,6 @@ public class FeedbackActivity extends AppCompatActivity implements ResolvedRepor
     private void showLoading(boolean show) {
         progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
         btnSubmit.setEnabled(!show);
-    }
-
-    private void saveFeedbackLocally(Feedback feedback) {
-        try {
-            // Lưu feedback vào SharedPreferences để có thể gửi lại sau
-            SharedPreferences prefs = getSharedPreferences("OfflineFeedback", MODE_PRIVATE);
-            SharedPreferences.Editor editor = prefs.edit();
-
-            String feedbackKey = "feedback_" + System.currentTimeMillis();
-            editor.putInt(feedbackKey + "_accountId", feedback.getAccountId());
-            editor.putInt(feedbackKey + "_wardId", feedback.getWardId());
-            editor.putInt(feedbackKey + "_rating", feedback.getRating());
-            editor.putString(feedbackKey + "_comment", feedback.getComment());
-            editor.putInt(feedbackKey + "_reportId", feedback.getReportId());
-            editor.putLong(feedbackKey + "_timestamp", System.currentTimeMillis());
-
-            editor.apply();
-            
-            android.util.Log.d("FeedbackActivity", "Feedback saved locally with key: " + feedbackKey);
-            showToast("Đánh giá đã được lưu offline. Sẽ gửi lại khi có kết nối mạng.");
-
-        } catch (Exception e) {
-            android.util.Log.e("FeedbackActivity", "Failed to save feedback locally: " + e.getMessage());
-        }
     }
 
     @Override

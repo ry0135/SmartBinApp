@@ -39,7 +39,6 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Handler;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -71,12 +70,13 @@ public class HomeActivity extends AppCompatActivity {
     private FloatingActionButton fabnearBin, fabMyLocation;
     private MapView mapView;
     private DrawerLayout drawerLayout;
+
     // Map & Location
     private VietMapGL vietmapGL;
     private FusedLocationProviderClient fusedLocationClient;
 
     // Cache icons and markers
-    private Bitmap iconRed, iconYellow, iconGreen, iconGrey, iconDefault; // 🟢 Thêm iconDefault
+    private Bitmap iconRed, iconYellow, iconGreen, iconGrey, iconDefault;
     private final Map<Integer, Marker> markerMap = new HashMap<>();
 
     // Realtime WebSocket
@@ -86,8 +86,8 @@ public class HomeActivity extends AppCompatActivity {
 
     private TextView tvBadge;
 
-    private Runnable updateBadgeTask;
-    // ------------------- Lifecycle Methods -------------------
+    // 🔥 Flag để biết map đã được khởi tạo chưa
+    private boolean isMapInitialized = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -103,7 +103,17 @@ public class HomeActivity extends AppCompatActivity {
         initializeViews();
         startEntranceAnimations();
         setupClickListeners();
-        // Gọi lần đầu khi mở app
+
+        // 🔥 Khởi tạo map
+        initializeMap();
+    }
+
+    // 🔥 Tách riêng phần khởi tạo map
+    private void initializeMap() {
+        if (isMapInitialized) {
+            Log.d(TAG, "Map đã được khởi tạo, bỏ qua");
+            return;
+        }
 
         mapView.getMapAsync(map -> {
             vietmapGL = map;
@@ -111,14 +121,9 @@ public class HomeActivity extends AppCompatActivity {
                     new Style.Builder().fromUri("https://maps.vietmap.vn/api/maps/light/styles.json?apikey=ecdbd35460b2d399e18592e6264186757aaaddd8755b774c"),
                     this::onStyleLoaded
             );
+            isMapInitialized = true;
         });
-        wsService.connect();
-        // Lắng nghe dữ liệu realtime từ WebSocket
-        wsService.setListener(this::onBinUpdateReceived);
-
     }
-
-    // ------------------- Map Callbacks -------------------
 
     private void onStyleLoaded(Style style) {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -146,7 +151,6 @@ public class HomeActivity extends AppCompatActivity {
             }
         }
     }
-    // ------------------- Data Handling & WebSocket -------------------
 
     private void loadBinsFromApi() {
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
@@ -154,19 +158,19 @@ public class HomeActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<List<Bin>> call, Response<List<Bin>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    initIcons(); // Khởi tạo icons trước khi dùng
+                    initIcons();
                     for (Bin bin : response.body()) {
-                        addOrUpdateMarker(bin, false); // Thêm marker ban đầu
+                        addOrUpdateMarker(bin, false);
                     }
 
                     vietmapGL.setOnMarkerClickListener(marker -> {
-                        Bin clickedBin = binDataMap.get(marker); // ✅ Lấy bin gốc đúng 100%
+                        Bin clickedBin = binDataMap.get(marker);
                         if (clickedBin != null) {
                             showBinActionBottomSheet(clickedBin, marker);
                         } else {
                             Log.w("MarkerClick", "⚠️ Không tìm thấy dữ liệu bin cho marker: " + marker.getTitle());
                         }
-                        return true; // ✅ chặn xử lý click mặc định
+                        return true;
                     });
                 } else {
                     Toast.makeText(HomeActivity.this, "Không tải được danh sách thùng rác", Toast.LENGTH_SHORT).show();
@@ -176,10 +180,11 @@ public class HomeActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<List<Bin>> call, Throwable t) {
                 Log.e(TAG, "Lỗi kết nối API: " + t.getMessage(), t);
-                Toast.makeText(HomeActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(HomeActivity.this, "Lỗi kết nối mạng ", Toast.LENGTH_SHORT).show();
             }
         });
     }
+
     private void showBinActionBottomSheet(Bin bin, Marker marker) {
         android.app.Dialog dialog = new android.app.Dialog(this);
         dialog.setContentView(R.layout.layout_bin_action_bottomsheet);
@@ -235,14 +240,13 @@ public class HomeActivity extends AppCompatActivity {
     private void addOrUpdateMarker(Bin bin, boolean isRealtimeUpdate) {
         if (vietmapGL == null) return;
 
-        int percent = (int) bin.getCurrentFill() ;
+        int percent = (int) bin.getCurrentFill();
         Icon icon = getSafeBinIcon(bin);
         String title = bin.getBinCode() + " - " + percent + "% đầy";
         String snippet = isRealtimeUpdate ?
                 "Cập nhật lúc: " + System.currentTimeMillis() :
                 bin.getWardName() + ", " + bin.getProvinceName();
 
-        // 🚫 Chỉ xóa marker cũ nếu binId > 0
         if (bin.getBinId() > 0 && markerMap.containsKey(bin.getBinId())) {
             Marker oldMarker = markerMap.remove(bin.getBinId());
             if (oldMarker != null) vietmapGL.removeMarker(oldMarker);
@@ -262,69 +266,46 @@ public class HomeActivity extends AppCompatActivity {
             markerMap.put(marker.hashCode(), marker);
         }
 
-// ✅ Gắn dữ liệu bin thật
         binDataMap.put(marker, bin);
 
         Log.d(TAG, "Added new marker for BinID: " + bin.getBinId() + " with fill: " + percent + "%");
     }
 
-
-    // ------------------- Icon Handling (Khắc phục lỗi màu đen) -------------------
-
     private void initIcons() {
-        // Khởi tạo icons, lưu ý có thể trả về NULL nếu tệp drawable bị lỗi
         if (iconRed == null) iconRed = getBitmapFromVectorDrawable(R.drawable.ic_bin_red);
         if (iconYellow == null) iconYellow = getBitmapFromVectorDrawable(R.drawable.ic_bin_yellow);
         if (iconGreen == null) iconGreen = getBitmapFromVectorDrawable(R.drawable.ic_bin_green);
         if (iconGrey == null) iconGrey = getBitmapFromVectorDrawable(R.drawable.ic_bin_grey);
-
-        // 🟢 Khởi tạo icon dự phòng (đảm bảo phải có tệp drawable này)
-        // Nếu không có ic_bin_default, bạn có thể dùng một icon vector khác chắc chắn có.
         if (iconDefault == null) iconDefault = getBitmapFromVectorDrawable(R.drawable.ic_bin_green);
     }
 
-    /**
-     * Trả về Icon (Vietmap) đã được kiểm tra, sử dụng icon mặc định nếu icon mong muốn bị lỗi.
-     * Đã sửa lỗi chữ ký hàm (signature) cho phiên bản SDK chỉ hỗ trợ 2 tham số.
-     */
     private Icon getSafeBinIcon(Bin bin) {
         Bitmap targetBitmap;
 
-        // 🔥 Ưu tiên: BIN OFFLINE hoặc ERROR → icon GREY
         if (bin.getStatus() == 2) {
-            targetBitmap = iconGrey;   // <-- icon offline
-        }
-        else {
-            // Bình thường: chọn theo % đầy
+            targetBitmap = iconGrey;
+        } else {
             int percent = (int) bin.getCurrentFill();
-
             if (percent >= 80) targetBitmap = iconRed;
             else if (percent >= 40) targetBitmap = iconYellow;
             else targetBitmap = iconGreen;
         }
 
-        // Fallback nếu null
         if (targetBitmap == null) {
             targetBitmap = iconDefault;
         }
 
         return IconFactory.getInstance(this).fromBitmap(targetBitmap);
     }
-    /**
-     * Chuyển Vector Drawable sang Bitmap
-     */
 
     @Nullable
     private Bitmap getBitmapFromVectorDrawable(int drawableId) {
-        // 1. Lấy Drawable và đảm bảo nó có thể được thay đổi (mutate)
         Drawable drawable = ContextCompat.getDrawable(this, drawableId);
         if (drawable == null) {
             Log.e(TAG, "Lỗi: Không tìm thấy Drawable ID: " + drawableId);
             return null;
         }
 
-        // Sao chép Drawable để không ảnh hưởng đến các lần vẽ khác
-        // Đây là bước quan trọng để tránh lỗi rendering cache
         drawable = drawable.mutate();
 
         try {
@@ -332,23 +313,16 @@ public class HomeActivity extends AppCompatActivity {
             int targetHeightPx = dpToPx(30);
             int densityDpi = getResources().getDisplayMetrics().densityDpi;
 
-            // 2. Tạo Bitmap với cấu hình ARGB_8888 (hỗ trợ trong suốt)
             Bitmap bitmap = Bitmap.createBitmap(
                     targetWidthPx,
                     targetHeightPx,
                     Bitmap.Config.ARGB_8888
             );
 
-            // 3. Gán Density cho Bitmap (Rất quan trọng cho VietMap/Mapbox)
             bitmap.setDensity(densityDpi);
 
-            // 4. Thiết lập Canvas và Bounds
             Canvas canvas = new Canvas(bitmap);
-
-            // Đặt kích thước cố định cho drawable
             drawable.setBounds(0, 0, targetWidthPx, targetHeightPx);
-
-            // 5. Vẽ
             drawable.draw(canvas);
 
             return bitmap;
@@ -357,10 +331,10 @@ public class HomeActivity extends AppCompatActivity {
             return null;
         }
     }
+
     private int dpToPx(int dp) {
         return (int) (dp * getResources().getDisplayMetrics().density);
     }
-    // ------------------- Utility & UI Methods -------------------
 
     private void initializeFCMAndPermissions() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -401,7 +375,6 @@ public class HomeActivity extends AppCompatActivity {
             vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
                     new LatLng(last.getLatitude(), last.getLongitude()), 16));
         } else {
-            // Fallback: Di chuyển đến vị trí mặc định nếu không có vị trí cuối cùng
             vietmapGL.animateCamera(CameraUpdateFactory.newLatLngZoom(
                     new LatLng(15.969114, 108.260765), 16));
         }
@@ -422,6 +395,7 @@ public class HomeActivity extends AppCompatActivity {
             }
         }
     }
+
     private void fetchUnreadCount() {
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String savedUserId = prefs.getString("userId", "0");
@@ -437,11 +411,10 @@ public class HomeActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<Integer> call, Throwable t) {
-
+                Log.e(TAG, "Error fetching unread count: " + t.getMessage());
             }
         });
     }
-
 
     private void updateNotificationBadge(int unreadCount) {
         if (unreadCount > 0) {
@@ -451,8 +424,8 @@ public class HomeActivity extends AppCompatActivity {
             tvBadge.setVisibility(View.GONE);
         }
         Log.d("BADGE", "Unread = " + unreadCount + ", tvBadge = " + tvBadge);
-
     }
+
     private void initializeViews() {
         ivnotification = findViewById(R.id.iv_notification);
         btnHome = findViewById(R.id.btn_home);
@@ -464,7 +437,7 @@ public class HomeActivity extends AppCompatActivity {
         tvBadge = findViewById(R.id.tv_notification_badge);
 
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
-        int savedRole = prefs.getInt("role", 0); // Mặc định là 0 nếu chưa có
+        int savedRole = prefs.getInt("role", 0);
 
         if (savedRole == 4) {
             btnShowTask.setVisibility(View.GONE);
@@ -490,33 +463,76 @@ public class HomeActivity extends AppCompatActivity {
         ivnotification.setOnClickListener(v -> {
             startActivity(new Intent(HomeActivity.this, NotificationListActivity.class));
         });
+
+        // 🔥 Giữ HomeActivity trong stack để có thể quay lại
+        btnHome.setOnClickListener(v -> {
+            // Không làm gì vì đang ở Home rồi
+            Toast.makeText(this, "Đang ở trang chủ", Toast.LENGTH_SHORT).show();
+        });
+
         btnAccount.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         btnShowTask.setOnClickListener(v -> startActivity(new Intent(this, TaskSummaryActivity.class)));
 
         fabMyLocation.setOnClickListener(v -> moveToMyLocation());
         fabnearBin.setOnClickListener(v -> startActivity(new Intent(this, NearbyBinsActivity.class)));
 
-        // Thêm click listener cho nút Report trên Bottom Navigation
         btnReport.setOnClickListener(v -> {
             Intent intent = new Intent(HomeActivity.this, ReportsListActivity.class);
             startActivity(intent);
         });
     }
 
-    // ------------------- MapView Lifecycle Overrides -------------------
+    // 🔥 QUAN TRỌNG: Thêm onStart() để reconnect WebSocket
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mapView.onStart();
+
+        // Reconnect WebSocket khi quay lại activity
+        if (!wsService.isConnected()) {
+            wsService.connect();
+            wsService.setListener(this::onBinUpdateReceived);
+            Log.d(TAG, "✅ WebSocket reconnected in onStart()");
+        }
+    }
 
     @Override
     protected void onResume() {
         super.onResume();
         mapView.onResume();
-        fetchUnreadCount(); // chạy đúng thời điểm
-    }    @Override protected void onPause() { super.onPause(); mapView.onPause(); }
-    @Override protected void onStop() { super.onStop(); mapView.onStop(); wsService.disconnect(); }
+        fetchUnreadCount();
+
+        // 🔥 Reload bins khi quay lại
+        if (vietmapGL != null && isMapInitialized) {
+            Log.d(TAG, "🔄 Reloading bins on resume");
+            loadBinsFromApi();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mapView.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mapView.onStop();
+        // ⚠️ KHÔNG disconnect WebSocket ở đây nữa để giữ kết nối
+        // wsService.disconnect();
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mapView.onDestroy();
         wsService.disconnect();
-    }    @Override protected void onSaveInstanceState(Bundle outState) {
+        Log.d(TAG, "🔴 WebSocket disconnected in onDestroy()");
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
     }

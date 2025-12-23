@@ -97,9 +97,9 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
         progressBar = findViewById(R.id.progressBar);
 
         btnHome = findViewById(R.id.btn_home);
-        btnReport = findViewById(R.id.btn_report);
-        btnShowTask = findViewById(R.id.btn_showtask);
-        btnAccount = findViewById(R.id.btn_account);
+//    btnReport = findViewById(R.id.btn_report);
+//    btnShowTask = findViewById(R.id.btn_showtask);
+//    btnAccount = findViewById(R.id.btn_account);
         bottomNavigation = findViewById(R.id.bottom_navigation);
 
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
@@ -113,11 +113,14 @@ public class ReportBinActivity extends AppCompatActivity implements ImageAdapter
                 return;
             }
         }
-        int savedRole = prefs.getInt("role", 0);
-        if (savedRole == 4) {
-            btnShowTask.setVisibility(View.GONE);
-            Log.d("RoleCheck", "Đã ẩn nút Nhiệm vụ vì người dùng là citizen");
-        }
+
+        // ❌ XÓA HOẶC COMMENT OUT ĐOẠN NÀY
+        // int savedRole = prefs.getInt("role", 0);
+        // if (savedRole == 4) {
+        //     btnShowTask.setVisibility(View.GONE);
+        //     Log.d("RoleCheck", "Đã ẩn nút Nhiệm vụ vì người dùng là citizen");
+        // }
+
         binId = getIntent().getIntExtra("bin_id", -1);
         binCode = getIntent().getStringExtra("bin_code");
         binAddress = getIntent().getStringExtra("bin_address");
