@@ -86,6 +86,7 @@
         <activity android:name=".ForgotPasswordActivity" android:exported="false" />
         <activity android:name=".ResetPasswordActivity" android:exported="false" />
         <activity android:name=".NotificationListActivity" android:exported="false" />
+        <activity android:name=".ChangePasswordActivity" android:exported="false" />
 
 
 

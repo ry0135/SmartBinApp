@@ -29,6 +29,7 @@ import androidx.core.content.FileProvider;
 import com.example.smartbinapp.model.ApiMessage;
 import com.example.smartbinapp.network.ApiService;
 import com.example.smartbinapp.network.RetrofitClient;
+import com.example.smartbinapp.utils.ImageCompressor; // ✅ Import class nén ảnh
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.material.button.MaterialButton;
@@ -48,11 +49,14 @@ import retrofit2.Response;
 
 public class CompleteTaskActivity extends AppCompatActivity {
 
+    private static final String TAG = "CompleteTaskActivity";
+
     private int taskId;
     private double binLat, binLng, currentFill, capacity;
     private String binCode;
     private Uri photoUri;
     private File tempPhotoFile;
+    private File compressedPhotoFile; // ✅ File ảnh đã nén
 
     private ImageView ivSuccess, ivPreview;
     private CardView cardImagePreview, cardInstruction, cardSuccess;
@@ -63,8 +67,8 @@ public class CompleteTaskActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> cameraLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == RESULT_OK) {
-                    showImagePreview();
-                    updateProgressStep3Completed();
+                    // ✅ Nén ảnh ngay sau khi chụp
+                    compressPhotoAfterCapture();
                 } else {
                     Toast.makeText(this, "Đã hủy chụp ảnh", Toast.LENGTH_SHORT).show();
                 }
@@ -80,25 +84,21 @@ public class CompleteTaskActivity extends AppCompatActivity {
         getIntentData();
         setupClickListeners();
 
-        // Hiển thị instruction section ban đầu
         showInstructionSection();
     }
 
     private void initializeViews() {
-        // Main views
         ivSuccess = findViewById(R.id.ivSuccess);
         ivPreview = findViewById(R.id.ivPreview);
         cardImagePreview = findViewById(R.id.cardImagePreview);
         cardInstruction = findViewById(R.id.cardInstruction);
         cardSuccess = findViewById(R.id.cardSuccess);
 
-        // Buttons - CHỈ KHỞI TẠO NHỮNG BUTTON CÓ TRONG LAYOUT
         btnCapture = findViewById(R.id.btnCapture);
         btnConfirm = findViewById(R.id.btnConfirm);
         btnRetake = findViewById(R.id.btnRetake);
         btnViewFull = findViewById(R.id.btnViewFull);
 
-        // TextViews
         tvBinCode = findViewById(R.id.tvBinCode);
         tvLocation = findViewById(R.id.tvLocation);
         tvStep3Status = findViewById(R.id.tvStep3Status);
@@ -114,7 +114,6 @@ public class CompleteTaskActivity extends AppCompatActivity {
         currentFill = getIntent().getDoubleExtra("currentFill", 0);
         capacity = getIntent().getDoubleExtra("capacity", 0);
 
-        // Update UI with bin data
         if (tvBinCode != null) {
             tvBinCode.setText(binCode);
         }
@@ -124,14 +123,13 @@ public class CompleteTaskActivity extends AppCompatActivity {
     }
 
     private void setupClickListeners() {
-        // CHỈ GÁN CLICK LISTENER CHO NHỮNG BUTTON TỒN TẠI
         if (btnCapture != null) {
             btnCapture.setOnClickListener(v -> checkCameraPermission());
         }
 
         if (btnConfirm != null) {
             btnConfirm.setOnClickListener(v -> confirmCompletion());
-            btnConfirm.setEnabled(false); // Disable confirm button initially
+            btnConfirm.setEnabled(false);
         }
 
         if (btnRetake != null) {
@@ -142,13 +140,11 @@ public class CompleteTaskActivity extends AppCompatActivity {
             btnViewFull.setOnClickListener(v -> viewFullScreenImage());
         }
 
-        // Close preview button - KIỂM TRA NULL
         ImageButton btnClosePreview = findViewById(R.id.btnClosePreview);
         if (btnClosePreview != null) {
             btnClosePreview.setOnClickListener(v -> hideImagePreview());
         }
 
-        // Copy location button - KIỂM TRA NULL
         ImageButton btnCopyLocation = findViewById(R.id.btnCopyLocation);
         if (btnCopyLocation != null) {
             btnCopyLocation.setOnClickListener(v -> copyLocationToClipboard());
@@ -172,7 +168,6 @@ public class CompleteTaskActivity extends AppCompatActivity {
             cardSuccess.setVisibility(View.VISIBLE);
         }
 
-        // Animation cho success icon
         animateSuccessIcon();
     }
 
@@ -214,7 +209,7 @@ public class CompleteTaskActivity extends AppCompatActivity {
             }
         } else if (requestCode == 101) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                confirmCompletion(); // Retry after location permission granted
+                confirmCompletion();
             } else {
                 Toast.makeText(this, "Cần quyền vị trí để xác nhận hoàn thành", Toast.LENGTH_SHORT).show();
             }
@@ -249,15 +244,70 @@ public class CompleteTaskActivity extends AppCompatActivity {
         }
     }
 
-    private void showImagePreview() {
-        if (photoUri != null) {
+    // ✅ NÉN ẢNH SAU KHI CHỤP
+    private void compressPhotoAfterCapture() {
+        if (tempPhotoFile == null || !tempPhotoFile.exists()) {
+            Toast.makeText(this, "Lỗi: Không tìm thấy file ảnh", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Hiển thị thông báo đang nén
+        Toast.makeText(this, "Đang xử lý ảnh...", Toast.LENGTH_SHORT).show();
+
+        // Chạy nén ảnh trong background thread
+        new Thread(() -> {
             try {
-                Bitmap bitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(photoUri));
+                // Nén ảnh xuống tối đa 800KB
+                compressedPhotoFile = ImageCompressor.compressImage(
+                        tempPhotoFile.getAbsolutePath(),
+                        800
+                );
+
+                // Log kết quả
+                long originalSize = tempPhotoFile.length() / 1024;
+                long compressedSize = compressedPhotoFile.length() / 1024;
+
+                Log.d(TAG, "=== NÉN ẢNH THÀNH CÔNG ===");
+                Log.d(TAG, "Original: " + originalSize + " KB");
+                Log.d(TAG, "Compressed: " + compressedSize + " KB");
+                Log.d(TAG, "Saved: " + (originalSize - compressedSize) + " KB");
+                Log.d(TAG, "========================");
+
+                // Quay về UI thread để hiển thị ảnh
+                runOnUiThread(() -> {
+                    showImagePreview();
+                    updateProgressStep3Completed();
+                    Toast.makeText(this, "✅ Ảnh đã sẵn sàng!", Toast.LENGTH_SHORT).show();
+                });
+
+            } catch (Exception e) {
+                Log.e(TAG, "Lỗi nén ảnh: " + e.getMessage(), e);
+
+                // Nếu nén thất bại, dùng ảnh gốc
+                compressedPhotoFile = tempPhotoFile;
+
+                runOnUiThread(() -> {
+                    showImagePreview();
+                    updateProgressStep3Completed();
+                    Toast.makeText(this, "⚠️ Dùng ảnh gốc", Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
+    }
+
+    private void showImagePreview() {
+        // Hiển thị ảnh đã nén (nếu có) hoặc ảnh gốc
+        File imageToShow = (compressedPhotoFile != null && compressedPhotoFile.exists())
+                ? compressedPhotoFile
+                : tempPhotoFile;
+
+        if (imageToShow != null && imageToShow.exists()) {
+            try {
+                Bitmap bitmap = BitmapFactory.decodeFile(imageToShow.getAbsolutePath());
                 if (ivPreview != null) {
                     ivPreview.setImageBitmap(bitmap);
                 }
 
-                // Show preview card with animation
                 if (cardImagePreview != null) {
                     cardImagePreview.setVisibility(View.VISIBLE);
                     cardImagePreview.setAlpha(0f);
@@ -267,13 +317,13 @@ public class CompleteTaskActivity extends AppCompatActivity {
                             .start();
                 }
 
-                // Enable confirm button
                 if (btnConfirm != null) {
                     btnConfirm.setEnabled(true);
                 }
 
-            } catch (IOException e) {
-                Toast.makeText(this, "Lỗi load ảnh", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Lỗi hiển thị ảnh", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Error showing preview: " + e.getMessage());
             }
         }
     }
@@ -290,13 +340,32 @@ public class CompleteTaskActivity extends AppCompatActivity {
 
     private void retakePhoto() {
         hideImagePreview();
+
+        // Xóa file cũ
+        if (compressedPhotoFile != null && compressedPhotoFile.exists()) {
+            compressedPhotoFile.delete();
+        }
+        if (tempPhotoFile != null && tempPhotoFile.exists()) {
+            tempPhotoFile.delete();
+        }
+
         openCamera();
     }
 
     private void viewFullScreenImage() {
-        if (photoUri != null) {
+        File imageToView = (compressedPhotoFile != null && compressedPhotoFile.exists())
+                ? compressedPhotoFile
+                : tempPhotoFile;
+
+        if (imageToView != null && imageToView.exists()) {
+            Uri uri = FileProvider.getUriForFile(
+                    this,
+                    getPackageName() + ".provider",
+                    imageToView
+            );
+
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(photoUri, "image/*");
+            intent.setDataAndType(uri, "image/*");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(intent);
         }
@@ -320,7 +389,8 @@ public class CompleteTaskActivity extends AppCompatActivity {
     }
 
     private void confirmCompletion() {
-        if (tempPhotoFile == null || !tempPhotoFile.exists()) {
+        // ✅ Kiểm tra có ảnh đã nén chưa
+        if (compressedPhotoFile == null || !compressedPhotoFile.exists()) {
             Toast.makeText(this, "Vui lòng chụp ảnh minh chứng trước", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -341,11 +411,10 @@ public class CompleteTaskActivity extends AppCompatActivity {
             double currentLat = location.getLatitude();
             double currentLng = location.getLongitude();
 
-            // Check distance to bin (50m threshold)
             float[] distance = new float[1];
             android.location.Location.distanceBetween(currentLat, currentLng, binLat, binLng, distance);
 
-            if (distance[0] > 500) {
+            if (distance[0] > 50) {
                 Toast.makeText(this,
                         "Bạn đang cách thùng quá xa (" + (int) distance[0] + "m). Vui lòng đến gần hơn.",
                         Toast.LENGTH_LONG).show();
@@ -361,31 +430,50 @@ public class CompleteTaskActivity extends AppCompatActivity {
     private void uploadImageToServer(double lat, double lng) {
         if (btnConfirm != null) {
             btnConfirm.setEnabled(false);
-            btnConfirm.setText("Đang xử lý...");
+            btnConfirm.setText("Đang tải lên...");
         }
 
         ApiService apiService = RetrofitClient.getRetrofitInstance().create(ApiService.class);
 
         try {
-            // Log thông tin request
-            Log.d("API_UPLOAD", "Uploading - Task: " + taskId +
-                    ", Lat: " + lat + ", Lng: " + lng +
-                    ", File: " + tempPhotoFile.getName());
+            // ✅ SỬ DỤNG ẢNH ĐÃ NÉN
+            File fileToUpload = (compressedPhotoFile != null && compressedPhotoFile.exists())
+                    ? compressedPhotoFile
+                    : tempPhotoFile;
 
-            // Prepare data
+            long fileSizeKB = fileToUpload.length() / 1024;
+
+            Log.d(TAG, "=== UPLOADING IMAGE ===");
+            Log.d(TAG, "Task ID: " + taskId);
+            Log.d(TAG, "Location: " + lat + ", " + lng);
+            Log.d(TAG, "File: " + fileToUpload.getName());
+            Log.d(TAG, "Size: " + fileSizeKB + " KB");
+            Log.d(TAG, "=====================");
+
             RequestBody taskIdBody = RequestBody.create(String.valueOf(taskId), MediaType.parse("text/plain"));
             RequestBody latBody = RequestBody.create(String.valueOf(lat), MediaType.parse("text/plain"));
             RequestBody lngBody = RequestBody.create(String.valueOf(lng), MediaType.parse("text/plain"));
 
-            RequestBody fileBody = RequestBody.create(tempPhotoFile, MediaType.parse("image/jpeg"));
-            MultipartBody.Part imagePart = MultipartBody.Part.createFormData("image", tempPhotoFile.getName(), fileBody);
+            RequestBody fileBody = RequestBody.create(fileToUpload, MediaType.parse("image/jpeg"));
+            MultipartBody.Part imagePart = MultipartBody.Part.createFormData(
+                    "image",
+                    fileToUpload.getName(),
+                    fileBody
+            );
 
             double collectedVolume = (currentFill / 100.0) * capacity;
-            Log.d("VOLUME", "Collected: " + collectedVolume);
+            RequestBody collectedVolumeBody = RequestBody.create(
+                    String.valueOf(collectedVolume),
+                    MediaType.parse("text/plain")
+            );
 
-            RequestBody collectedVolumeBody = RequestBody.create(String.valueOf(collectedVolume), MediaType.parse("text/plain"));
-            // Call API
-            Call<ApiMessage> call = apiService.completeTaskWithImage(taskIdBody, latBody, lngBody, collectedVolumeBody, imagePart);
+            Call<ApiMessage> call = apiService.completeTaskWithImage(
+                    taskIdBody,
+                    latBody,
+                    lngBody,
+                    collectedVolumeBody,
+                    imagePart
+            );
 
             call.enqueue(new Callback<ApiMessage>() {
                 @Override
@@ -396,7 +484,7 @@ public class CompleteTaskActivity extends AppCompatActivity {
                     }
 
                     if (response.isSuccessful() && response.body() != null) {
-                        Log.d("API_UPLOAD", "Success: " + response.body().getMessage());
+                        Log.d(TAG, "✅ Upload thành công: " + response.body().getMessage());
                         showSuccessAndFinish();
                     } else {
                         String errorMsg = "Lỗi Server: " + response.code();
@@ -407,7 +495,7 @@ public class CompleteTaskActivity extends AppCompatActivity {
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-                        Log.e("API_UPLOAD", "Error: " + errorMsg);
+                        Log.e(TAG, "❌ Upload lỗi: " + errorMsg);
                         Toast.makeText(CompleteTaskActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                     }
                 }
@@ -418,7 +506,7 @@ public class CompleteTaskActivity extends AppCompatActivity {
                         btnConfirm.setEnabled(true);
                         btnConfirm.setText("Xác nhận");
                     }
-                    Log.e("API_UPLOAD", "Failure: " + t.getMessage());
+                    Log.e(TAG, "❌ Upload thất bại: " + t.getMessage());
                     Toast.makeText(CompleteTaskActivity.this,
                             "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
                 }
@@ -429,35 +517,44 @@ public class CompleteTaskActivity extends AppCompatActivity {
                 btnConfirm.setEnabled(true);
                 btnConfirm.setText("Xác nhận");
             }
-            Log.e("API_UPLOAD", "Exception: " + e.getMessage());
+            Log.e(TAG, "❌ Exception: " + e.getMessage());
             Toast.makeText(this, "Lỗi chuẩn bị dữ liệu: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
     private void showSuccessAndFinish() {
-
-        // Gửi kết quả NGAY LẬP TỨC
         Intent resultIntent = new Intent();
         resultIntent.putExtra("taskId", taskId);
         resultIntent.putExtra("status", "COMPLETED");
         setResult(RESULT_OK, resultIntent);
+        if (compressedPhotoFile != null && compressedPhotoFile.exists()) {
+            resultIntent.putExtra("proofImagePath", compressedPhotoFile.getAbsolutePath());
+        } else if (tempPhotoFile != null && tempPhotoFile.exists()) {
+            resultIntent.putExtra("proofImagePath", tempPhotoFile.getAbsolutePath());
+        }
 
-        // Hiển thị animation
+        setResult(RESULT_OK, resultIntent);
+
         showSuccessSection();
-        Toast.makeText(this, "✅ Hoàn thành nhiệm vụ!", Toast.LENGTH_LONG).show();
 
-        // Cho animation chạy 2 giây rồi mới finish
         new Handler().postDelayed(this::finish, 2000);
     }
-
-
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Clean up temp file if needed
+
+//        // ✅ Dọn dẹp file tạm
+//        if (tempPhotoFile != null && tempPhotoFile.exists()) {
+//            tempPhotoFile.delete();
+//        }
+//        if (compressedPhotoFile != null && compressedPhotoFile.exists()
+//                && compressedPhotoFile.getName().startsWith("compressed_")) {
+//            compressedPhotoFile.delete();
+//        }
+
         if (tempPhotoFile != null && tempPhotoFile.exists()) {
-            // tempPhotoFile.delete(); // Uncomment if you want to delete temp files immediately
+            tempPhotoFile.delete();
         }
     }
 }

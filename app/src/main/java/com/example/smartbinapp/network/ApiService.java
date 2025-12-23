@@ -203,4 +203,6 @@ public interface ApiService {
             @Query("reason") String reason
     );
 
+    @POST("api/accounts/change-password")
+    Call<ResponseBody> changePassword(@Body RequestBody body);
 }

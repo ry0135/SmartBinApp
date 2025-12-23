@@ -999,21 +999,41 @@ public class TaskDetailActivity extends AppCompatActivity {
         tvStatus.setText("Trạng thái: " + statusVi);
 
 
-        // ⭐⭐⭐ HIỂN THỊ ẢNH CHỨNG MINH NẾU ĐÃ HOÀN THÀNH ⭐⭐⭐
         if (task.getStatus().equalsIgnoreCase("COMPLETED")) {
-
             btnComplete.setVisibility(View.GONE);
+            btnReport.setVisibility(View.GONE);
             tvStatus.setTextColor(Color.parseColor("#4CAF50"));
             tvStatus.setText("Đã hoàn thành");
 
-            imgProof.setVisibility(View.VISIBLE); // Hiện ảnh
+            imgProof.setVisibility(View.VISIBLE);
 
-            // 👉 Thay task.getProofImageUrl() bằng trường backend bạn trả về
-            Glide.with(this)
-                    .load(task.getAfterImage())
-                    .placeholder(R.drawable.ic_profile_placeholder)
-                    .error(R.drawable.placeholder_image)
-                    .into(imgProof);
+            // ⭐ ƯU TIÊN HIỂN THỊ ẢNH LOCAL (vừa chụp)
+            String afterImage = task.getAfterImage();
+
+            if (afterImage != null && !afterImage.isEmpty()) {
+                File localFile = new File(afterImage);
+
+                if (localFile.exists()) {
+                    Glide.with(this)
+                            .load(localFile)
+                            .placeholder(R.drawable.ic_profile_placeholder)
+                            .error(R.drawable.placeholder_image)
+                            .into(imgProof);
+                }
+                else if (afterImage.startsWith("http")) {
+                    Glide.with(this)
+                            .load(afterImage)
+                            .placeholder(R.drawable.ic_profile_placeholder)
+                            .error(R.drawable.placeholder_image)
+                            .into(imgProof);
+                }
+                // ❌ Không có ảnh hợp lệ
+                else {
+                    imgProof.setImageResource(R.drawable.placeholder_image);
+                }
+            } else {
+                imgProof.setImageResource(R.drawable.placeholder_image);
+            }
 
         } else {
 
@@ -1021,6 +1041,7 @@ public class TaskDetailActivity extends AppCompatActivity {
 
             if (task.getStatus().equalsIgnoreCase("OPEN")) {
                 btnComplete.setVisibility(View.GONE);
+                btnReport.setVisibility(View.GONE);
                 tvStatus.setTextColor(Color.parseColor("#FF9800"));
                 tvStatus.setText("Đang chờ nhận nhiệm vụ");
             } else if (task.getStatus().equalsIgnoreCase("ISSUE")) {
@@ -1097,12 +1118,16 @@ public class TaskDetailActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     String status = result.getData().getStringExtra("status");
                     int taskId = result.getData().getIntExtra("taskId", -1);
+                    String proofImagePath = result.getData().getStringExtra("proofImagePath");
 
                     if ("COMPLETED".equals(status)) {
 
                         for (Task t : allTasks) {
                             if (t.getTaskID() == taskId) {
                                 t.setStatus("COMPLETED");
+                                if (proofImagePath != null) {
+                                    t.setAfterImage(proofImagePath); // Lưu local path tạm thời
+                                }
                                 break;
                             }
                         }
@@ -1146,7 +1171,6 @@ public class TaskDetailActivity extends AppCompatActivity {
                             Toast.makeText(this, "Tất cả thùng đã hoàn thành!", Toast.LENGTH_SHORT).show();
                         }
 
-                        Toast.makeText(this, "Nhiệm vụ đã hoàn thành!", Toast.LENGTH_SHORT).show();
 
                     }
                 }

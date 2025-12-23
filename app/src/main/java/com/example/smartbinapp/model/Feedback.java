@@ -3,7 +3,6 @@ package com.example.smartbinapp.model;
 public class Feedback {
     private int feedbackId;      // Khớp với database: FeedbackID INT IDENTITY(1,1) PRIMARY KEY
     private int accountId;       // Khớp với database: AccountID INT NOT NULL
-    private int wardId;          // Khớp với database: WardID INT NOT NULL
     private int rating;          // Khớp với database: Rating INT NOT NULL CHECK (Rating BETWEEN 1 AND 5)
     private String comment;      // Khớp với database: Comment NVARCHAR(500)
     private int reportId;        // Khớp với database: ReportID INT NULL
@@ -12,9 +11,8 @@ public class Feedback {
     // Constructors
     public Feedback() {}
 
-    public Feedback(int accountId, int wardId, int rating, String comment, int reportId) {
+    public Feedback(int accountId, int rating, String comment, int reportId) {
         this.accountId = accountId;
-        this.wardId = wardId;
         this.rating = rating;
         this.comment = comment;
         this.reportId = reportId;
@@ -37,13 +35,6 @@ public class Feedback {
         this.accountId = accountId;
     }
 
-    public int getWardId() {
-        return wardId;
-    }
-
-    public void setWardId(int wardId) {
-        this.wardId = wardId;
-    }
 
     public int getRating() {
         return rating;
@@ -80,7 +71,6 @@ public class Feedback {
     // Validation methods - khớp với database constraints
     public boolean isValid() {
         return accountId > 0 &&                    // AccountID INT NOT NULL
-               wardId > 0 &&                       // WardID INT NOT NULL
                rating >= 1 && rating <= 5 &&      // Rating INT NOT NULL CHECK (Rating BETWEEN 1 AND 5)
                comment != null && !comment.trim().isEmpty(); // Comment không được null/empty
     }
@@ -89,9 +79,7 @@ public class Feedback {
         if (accountId <= 0) {
             return "Account ID is required and must be positive";
         }
-        if (wardId <= 0) {
-            return "Ward ID is required and must be positive";
-        }
+
         if (rating < 1 || rating > 5) {
             return "Rating must be between 1 and 5";
         }
@@ -109,7 +97,6 @@ public class Feedback {
         return "Feedback{" +
                 "feedbackId=" + feedbackId +
                 ", accountId=" + accountId +
-                ", wardId=" + wardId +
                 ", rating=" + rating +
                 ", comment='" + comment + '\'' +
                 ", reportId=" + reportId +

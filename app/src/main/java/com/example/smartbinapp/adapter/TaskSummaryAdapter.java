@@ -204,7 +204,6 @@ public class TaskSummaryAdapter extends RecyclerView.Adapter<TaskSummaryAdapter.
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
-                    Toast.makeText(context, "✅ Cập nhật trạng thái thành công!", Toast.LENGTH_SHORT).show();
                     task.setStatus(newStatus);
                     notifyDataSetChanged();
                 } else {

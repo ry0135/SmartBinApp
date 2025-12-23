@@ -144,8 +144,10 @@ public class ProfileActivity extends AppCompatActivity {
         });
 
         itemChangePassword.setOnClickListener(v ->
-                Toast.makeText(this, "Mở màn đổi mật khẩu", Toast.LENGTH_SHORT).show());
-
+        {
+            Intent intent = new Intent(this, ChangePasswordActivity.class);
+            startActivity(intent);
+        });
         itemNotification.setOnClickListener(v ->
                 Toast.makeText(this, "Mở cài đặt thông báo", Toast.LENGTH_SHORT).show());
 
